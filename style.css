@@ -1,0 +1,410 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    user-select: none;
+}
+
+body, html {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: #080803;
+    font-family: 'Courier New', Courier, monospace;
+}
+
+#canvas-container {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1;
+}
+
+/* --- VHS Retro Camera Overlays --- */
+#vhs-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10;
+    pointer-events: none;
+    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.35) 50%), 
+                linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+    background-size: 100% 5px, 5px 100%;
+    opacity: 0.85;
+}
+
+.vhs-text {
+    position: absolute;
+    color: #e3e3cb;
+    text-shadow: 2px 0px 1px #ff0000, -2px 0px 1px #0000ff;
+    z-index: 11;
+    font-weight: bold;
+    pointer-events: none;
+}
+
+#timestamp { top: 30px; left: 40px; line-height: 1.6; font-size: 16px; }
+#rec-indicator { top: 30px; right: 40px; color: #ff3333; font-size: 16px; animation: blink 1s steps(2, start) infinite; }
+
+.alert-txt { color: #ffaa00; font-weight: bold; }
+.danger-txt { color: #ff3333; font-weight: bold; }
+.success-txt { color: #33ff33; font-weight: bold; }
+
+#crosshair {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 20px;
+    height: 20px;
+    z-index: 12;
+    pointer-events: none;
+}
+
+#crosshair::before,
+#crosshair::after {
+    content: '';
+    position: absolute;
+    background: rgba(230, 230, 180, 0.6);
+}
+
+#crosshair::before {
+    left: 50%;
+    top: 0;
+    width: 2px;
+    height: 100%;
+    transform: translateX(-50%);
+}
+
+#crosshair::after {
+    top: 50%;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    transform: translateY(-50%);
+}
+
+/* --- UI Component Interfaces --- */
+.screen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: flex-start;   
+    align-items: center;
+    z-index: 2000;
+    background: linear-gradient(to right, rgba(14, 14, 11, 0.95) 30%, rgba(5, 5, 2, 0.6) 100%),
+                url('./menu_bato.jpg') no-repeat center center;
+    background-size: cover;
+    padding-left: 60px;
+}
+
+#cutscene-screen {
+    padding: 0 !important;
+    justify-content: center !important;
+    align-items: center !important;
+    background: #000000 !important;
+    overflow: hidden;
+}
+
+#cutscene-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.cutscene-controls {
+    position: absolute;
+    bottom: 40px;
+    left: 40px;
+    z-index: 2500;
+}
+
+.chapter-theme {
+    background: none;
+    border: none;
+    text-align: left;
+    padding: 40px;
+    max-width: 480px;
+}
+
+.chapter-theme h1 {
+    font-size: 24px;
+    color: #ff4444;
+    margin-bottom: 20px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.chapter-theme p {
+    font-size: 14px;
+    color: #ccccaa;
+    line-height: 1.6;
+    margin-bottom: 20px;
+}
+
+.menu-options {
+    list-style: none !important;
+    padding: 0;
+    margin: 0;
+}
+
+.menu-options li {
+    margin-bottom: 10px;
+    list-style-type: none !important;
+}
+
+.menu-options button {
+    width: 100%;
+    background: rgba(24, 24, 21, 0.9);
+    border: 1px solid #44433b;
+    color: #eee;
+    padding: 12px;
+    font-weight: bold;
+    text-align: left;
+    font-family: 'Courier New', monospace;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.menu-options button:hover { 
+    background: #2b2b25; 
+    border-color: #ff4444;
+}
+
+.settings-group {
+    margin-bottom: 20px;
+    display: flex;
+    flex-direction: column;
+    color: #ccccaa;
+    font-size: 14px;
+}
+
+.settings-group label {
+    margin-bottom: 8px;
+    font-weight: bold;
+    color: #ff4444;
+}
+
+.settings-group input[type="range"] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 6px;
+    background: #222;
+    border: 1px solid #555;
+    border-radius: 4px;
+    outline: none;
+}
+
+.settings-group input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    background: #ff4444;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+#back-btn, #credits-back-btn {
+    width: 100%;
+    background: rgba(24, 24, 21, 0.9);
+    border: 1px solid #550000;
+    color: #eee;
+    padding: 12px;
+    font-weight: bold;
+    text-align: left;
+    font-family: 'Courier New', monospace;
+    cursor: pointer;
+    margin-top: 20px;
+}
+
+#back-btn:hover, #credits-back-btn:hover {
+    background: #550000;
+    color: #fff;
+}
+
+#skip-cutscene-btn {
+    background: rgba(24, 24, 21, 0.85);
+    border: 1px solid #550000;
+    color: #eee;
+    padding: 12px 24px;
+    font-weight: bold;
+    font-family: 'Courier New', monospace;
+    cursor: pointer;
+}   
+
+#skip-cutscene-btn:hover { background: #550000; color: #fff; }
+
+/* --- HUD Placement --- */
+#hud {
+    position: absolute;
+    top: 25px;
+    left: 25px;
+    z-index: 10;
+    background: rgba(14, 14, 11, 0.85);
+    border-left: 3px solid #736e43;
+    padding: 15px 20px;
+    pointer-events: none;
+}
+
+.hud-item {
+    font-family: monospace;
+    color: #e0ded0;
+    font-size: 14px;
+    margin-bottom: 6px;
+    letter-spacing: 1px;
+}
+
+.sprint-container {
+    margin-top: 15px;
+    width: 180px;
+    font-family: monospace;
+}
+
+.sprint-label {
+    color: #ababab;
+    font-size: 10px;
+    margin-bottom: 4px;
+}
+
+.sprint-bar-bg {
+    width: 100%;
+    height: 6px;
+    background: rgba(40, 40, 40, 0.6);
+    border: 1px solid #3d3d33;
+    overflow: hidden;
+}
+
+#sprint-bar-fill {
+    width: 100%;
+    height: 100%;
+    background: #00ffaa;
+    box-shadow: 0 0 6px #00ffaa;
+}
+
+#sprint-bar-fill.exhausted {
+    background: #ff3333;
+    box-shadow: 0 0 6px #ff3333;
+}
+
+/* --- TV Static Game Over Interface --- */
+#game-over-screen {
+    padding: 0 !important;
+    background: #050505 !important;
+    justify-content: center !important;
+    align-items: center !important;
+    z-index: 5000;
+}
+
+.tv-static {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background: url('data:image/svg+xml,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noiseFilter"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noiseFilter)"/%3E%3C/svg%3E');
+    opacity: 0.15;
+    pointer-events: none;
+    animation: static-flicker 0.1s infinite;
+}
+
+.game-over-content {
+    text-align: center;
+    z-index: 5005;
+    padding: 20px;
+}
+
+.glitch-text {
+    font-size: 20px;
+    color: #bbbbbb;
+    letter-spacing: 2px;
+    margin-bottom: 30px;
+    text-transform: uppercase;
+    text-shadow: 1px 0px 1px #ff0000, -1px 0px 1px #0000ff;
+    animation: text-jitter 0.2s infinite alternate;
+}
+
+.hidden-command {
+    font-size: 42px;
+    color: #ffffff;
+    letter-spacing: 6px;
+    font-weight: 900;
+    display: none; /* Controlled instantly via JS display properties instead of opacity transitions */
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+}
+
+.hidden-command.reveal {
+    opacity: 1;
+    transform: scale(1);
+}
+
+/* --- Modals & Jumpscares --- */
+.pause-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center; 
+    align-items: center;     
+    z-index: 3000;           
+    background-color: rgba(10, 6, 6, 0.88); 
+    backdrop-filter: blur(4px); 
+}
+
+.pause-box {
+    background: #12120b;
+    border: 2px dashed #6b6b4e;
+    padding: 40px;
+    width: 100%;
+    max-width: 420px;
+    text-align: center;
+}
+
+.pause-box h2 {
+    font-size: 22px;
+    color: #ff4444;
+    margin-bottom: 25px;
+    font-family: monospace;
+    animation: blink 1.5s steps(2, start) infinite;
+}
+
+.pause-box .menu-options button { text-align: center; }
+
+#jumpscare-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: url('./jumpscare.png');
+    background-size: cover;
+    background-position: center;
+    z-index: 500;
+    display: none;
+    box-shadow: inset 0 0 250px #ff0000;
+    filter: sepia(0.9) saturate(8) hue-rotate(-55deg) contrast(1.6);
+    animation: jitter 0.04s infinite alternate;
+}
+
+@keyframes blink { to { visibility: hidden; } }
+
+@keyframes jitter {
+    0% { transform: translate(3px, -2px) scale(1.02); }
+    100% { transform: translate(-3px, 2px) scale(0.99); }
+}
+
+@keyframes static-flicker {
+    0% { transform: translate(0,0); }
+    100% { transform: translate(-1%, 1%); }
+}
+
+@keyframes text-jitter {
+    0% { transform: translate(1px, 0); }
+    100% { transform: translate(-1px, -1px); }
+}

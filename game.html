@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARCHIVAL_RECOVERY_2026</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/x-icon" href="./bato.ico"> 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+</head>
+<body>
+    <div id="crosshair"></div>
+
+    <div id="hud">
+        <div class="hud-item">Evidence Files: <span id="files-count" class="alert-txt">0/7</span></div>
+        <div class="hud-item">Escape Lock: <span id="key-status" class="danger-txt">LOCKED</span></div>
+        <div class="sprint-container">
+            <div class="sprint-label">STAMINA</div>
+            <div class="sprint-bar-bg"><div id="sprint-bar-fill"></div></div>
+        </div>
+        <div id="quest-hud">
+            <div class="quest-title">Current Objective</div>
+            <div id="quest-text">Begin investigation in the warehouse</div>
+        </div>
+    </div>
+
+    <div id="vhs-overlay"></div>
+    <div class="vhs-text" id="timestamp">22 MAY 2026<br>22:26:56</div>
+    <div class="vhs-text" id="rec-indicator">● REC</div>
+
+    <div id="start-screen" class="screen">
+        <div class="menu-box chapter-theme">
+            <h1>CHAPTER 1<br>'ARCHIVAL RECOVERY'</h1>
+            <p class="chapter-desc">
+                "When Sen. Bato disappeared in 2026, a search party was sent to investigate the last known location:  
+                an abandoned warehouse on the outskirts of town. The footage recovered from the scene shows the senator  
+                wandering through a maze-like structure, desperately trying to find an exit. The grainy video captures  
+                eerie ambient sounds and glimpses of a shadowy entity stalking him. The tape ends abruptly, leaving his fate unknown."
+            </p>
+            <ul class="menu-options">
+                <li><button id="initialize-btn">CONTINUE</button></li>
+                <li><button id="newgame-btn">NEW GAME</button></li>
+                <li><button id="settings-btn">SETTINGS</button></li>
+                <li><button id="credits-btn">CREDITS</button></li>
+                <li><button id="quit-btn">QUIT</button></li>
+            </ul>
+        </div>
+    </div>
+
+    <div id="settings-screen" class="screen" style="display:none;">
+        <div class="menu-box chapter-theme">
+            <h1>SETTINGS</h1>
+            <div class="settings-group">
+                <label for="audio-volume">Audio Volume</label>
+                <input type="range" id="audio-volume" min="0" max="100" value="70">
+            </div>
+            <div class="settings-group">
+                <label for="graphics-quality">Graphics Quality</label>
+                <input type="range" id="graphics-quality" min="1" max="5" value="3">
+            </div>
+            <div class="settings-group">
+                <label for="mouse-sensitivity">Mouse Sensitivity</label>
+                <input type="range" id="mouse-sensitivity" min="1" max="10" value="5">
+            </div>
+            <button id="back-btn">BACK</button>
+        </div>
+    </div>
+
+    <div id="credits-screen" class="screen" style="display:none;">
+        <div class="menu-box chapter-theme">
+            <h1>CREDITS</h1>
+            <p class="chapter-desc">
+                ARGATE Development 2026<br>
+                Narrative & Design: ARGATE<br>
+                Programming: ARGATE<br><br>
+                
+                <br><br>
+                Note: This game is a work of fiction. Any resemblance to real persons, living or dead, or actual events is purely coincidental.
+            </p>
+            <button id="credits-back-btn">BACK</button>
+        </div>
+    </div>
+
+    <div id="pause-screen" class="pause-overlay" style="display:none;">
+        <div class="pause-box">
+            <h2>[SYSTEM PAUSED]</h2>
+            <ul class="menu-options">
+                <li><button id="resume-btn">RESUME</button></li>
+                <li><button id="pause-load-btn">LOAD GAME</button></li>
+                <li><button id="pause-settings-btn">SETTINGS</button></li>
+                <li><button id="pause-quit-btn">TITLE SCREEN</button></li>
+            </ul>
+        </div>
+    </div>
+
+    <div id="cutscene-screen" class="screen" style="display:none; padding-left:0;">
+        <video id="cutscene-video" width="100%" height="100%" preload="auto">
+            <source src="cutscene.mp4" type="video/mp4">
+        </video>
+        <div style="position: absolute; bottom: 40px; left: 60px; z-index: 2500;">
+            <button id="skip-cutscene-btn">SKIP CUTSCENE</button>
+        </div>
+    </div>
+
+<div id="game-over-screen" class="screen" style="display:none;">
+        <div class="tv-static"></div>
+        <div class="game-over-content">
+            <p id="horror-quote" class="glitch-text"></p>
+            <h1 id="get-up-text" class="hidden-command">GET UP.</h1>
+        </div>
+    </div>
+
+    <div id="jumpscare-overlay" style="display:none;"></div>
+    <div id="canvas-container"></div>
+
+    <script src="game.js"></script>
+</body>
+</html>
