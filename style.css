@@ -244,13 +244,30 @@ body, html {
 /* --- HUD Placement --- */
 #hud {
     position: absolute;
-    top: 25px;
+    top: 110px;
     left: 25px;
     z-index: 10;
     background: rgba(14, 14, 11, 0.85);
     border-left: 3px solid #736e43;
     padding: 15px 20px;
     pointer-events: none;
+}
+
+.quest-title{
+    font-family: monospace;
+    color: #e0ded0;
+    font-size: 14px;
+    margin-top: 8px;
+    margin-bottom: 6px;
+    letter-spacing: 1px;
+}
+
+#quest-text {
+    font-family: monospace;
+    color: #ababab;
+    font-size: 12px;
+    line-height: 1.4;
+    margin-bottom: 10px;
 }
 
 .hud-item {
