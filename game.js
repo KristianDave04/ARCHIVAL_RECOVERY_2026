@@ -516,4 +516,123 @@ skipCutsceneBtn.addEventListener('click', () => { cutsceneVideo.pause(); cutscen
 cutsceneVideo.addEventListener('ended', () => { cutsceneScreen.style.display = 'none'; startGameplay(); });
 function startGameplay() { hasStartedGame = true; document.body.requestPointerLock(); resetGameEnvironment(); }
 
+function isMobileDevice() {
+  return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
+
+window.addEventListener('load', () => {
+  if (isMobileDevice()) {
+    document.getElementById('mobile-controls').style.display = 'flex';
+    document.getElementById('mobile-hud').style.display = 'block';
+    setupMobileControls();
+    setupMobileCamera();
+  }
+});
+
+function setupMobileControls() {
+  const joystick = document.getElementById('joystick');
+  const container = document.getElementById('joystick-container');
+  const center = { x: container.offsetWidth / 2, y: container.offsetHeight / 2 };
+
+  let active = false;
+
+  container.addEventListener('touchstart', (e) => {
+    active = true;
+    handleJoystick(e.touches[0]);
+  });
+
+  container.addEventListener('touchmove', (e) => {
+    if (!active) return;
+    handleJoystick(e.touches[0]);
+  });
+
+  container.addEventListener('touchend', () => {
+    active = false;
+    joystick.style.left = center.x - joystick.offsetWidth / 2 + 'px';
+    joystick.style.top = center.y - joystick.offsetHeight / 2 + 'px';
+    moveForward = moveBackward = moveLeft = moveRight = false;
+  });
+
+  function handleJoystick(touch) {
+    const rect = container.getBoundingClientRect();
+    const x = touch.clientX - rect.left;
+    const y = touch.clientY - rect.top;
+
+    const dx = x - center.x;
+    const dy = y - center.y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    const maxDist = container.offsetWidth / 2;
+
+    const angle = Math.atan2(dy, dx);
+    const limitedDist = Math.min(dist, maxDist - joystick.offsetWidth/2);
+
+    joystick.style.left = center.x + Math.cos(angle) * limitedDist - joystick.offsetWidth/2 + 'px';
+    joystick.style.top = center.y + Math.sin(angle) * limitedDist - joystick.offsetHeight/2 + 'px';
+
+    moveForward = dy < -20;
+    moveBackward = dy > 20;
+    moveLeft = dx < -20;
+    moveRight = dx > 20;
+  }
+
+  // Sprint
+  document.getElementById('btn-sprint').addEventListener('touchstart', () => {
+    if (!isExhausted) isSprinting = true;
+  });
+  document.getElementById('btn-sprint').addEventListener('touchend', () => isSprinting = false);
+
+  // Jump
+  document.getElementById('btn-jump').addEventListener('touchstart', () => executeJumpLeap());
+
+  // Interact
+  document.getElementById('btn-interact').addEventListener('touchstart', () => attemptItemPickup());
+}
+
+function setupMobileCamera() {
+  let lastX = null, lastY = null;
+
+  document.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 1) {
+      lastX = e.touches[0].clientX;
+      lastY = e.touches[0].clientY;
+    }
+  });
+
+  document.addEventListener('touchmove', (e) => {
+    if (e.touches.length === 1 && lastX !== null) {
+      const dx = e.touches[0].clientX - lastX;
+      const dy = e.touches[0].clientY - lastY;
+
+      camera.rotation.y -= dx * 0.002; // horizontal swipe
+      camera.rotation.x -= dy * 0.002; // vertical swipe
+      camera.rotation.x = Math.max(-Math.PI/2.2, Math.min(Math.PI/2.2, camera.rotation.x));
+
+      lastX = e.touches[0].clientX;
+      lastX = e.touches[0].clientX;
+      lastY = e.touches[0].clientY;
+    }
+  });
+
+  document.addEventListener('touchend', () => {
+    lastX = null;
+    lastY = null;
+  });
+}
+
+// --- Mobile HUD Sync ---
+function updateMobileHUD() {
+  const filesCount = document.getElementById('mobile-files-count');
+  const keyStatus = document.getElementById('mobile-key-status');
+  const sprintFill = document.getElementById('mobile-sprint-bar-fill');
+  const questText = document.getElementById('mobile-quest-text');
+
+  filesCount.innerText = collectedFiles + "/" + totalFilesRequired;
+  keyStatus.innerText = (collectedFiles === totalFilesRequired) ? "UNLOCKED" : "LOCKED";
+
+  const staminaPercentage = (stamina / maxStamina) * 100;
+  sprintFill.style.width = staminaPercentage + "%";
+
+  questText.textContent = quests[currentQuestIndex];
+}
+
 window.onload = init;
