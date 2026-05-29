@@ -524,7 +524,6 @@ function isMobileDevice() {
 
 window.addEventListener('load', () => {
   if (isMobileDevice()) {
-    document.getElementById('mobile-controls').style.display = 'block';
     setupMobileControls();
     setupMobileCamera();
   }
@@ -540,9 +539,7 @@ function setupMobileControls() {
   container.addEventListener('touchmove', (e) => { if (active) handleJoystick(e.touches[0]); });
   container.addEventListener('touchend', () => {
     active = false;
-    joystick.style.left = center.x - joystick.offsetWidth / 2 + 'px';
-    joystick.style.top = center.y - joystick.offsetHeight / 2 + 'px';
-    moveForward = moveBackward = moveLeft = moveRight = false;
+    resetJoystick();
   });
 
   function handleJoystick(touch) {
@@ -564,6 +561,12 @@ function setupMobileControls() {
     moveRight = dx > 20;
   }
 
+  function resetJoystick() {
+    joystick.style.left = center.x - joystick.offsetWidth / 2 + 'px';
+    joystick.style.top = center.y - joystick.offsetHeight / 2 + 'px';
+    moveForward = moveBackward = moveLeft = moveRight = false;
+  }
+
   // Buttons
   document.getElementById('btn-jump').addEventListener('touchstart', () => executeJumpLeap());
   document.getElementById('btn-sprint').addEventListener('touchstart', () => { if (!isExhausted) isSprinting = true; });
@@ -578,6 +581,7 @@ function setupMobileControls() {
     pauseScreen.style.display = 'flex';
     startScreen.style.display = 'none';
     document.getElementById('mobile-hud').style.display = 'none';
+    document.getElementById('mobile-controls').style.display = 'none';
   });
 }
 
@@ -607,30 +611,42 @@ function setupMobileCamera() {
 function updateMobileHUD() {
   if (!gameActive || pauseActive || startScreen.style.display === 'flex') {
     document.getElementById('mobile-hud').style.display = 'none';
+    document.getElementById('mobile-controls').style.display = 'none';
     return;
   }
+  document.getElementById('mobile-hud').style.display = 'block';
+  document.getElementById('mobile-controls').style.display = 'block';
+  document.getElementById('mobile-files-count').innerText = collectedFiles + "/" + totalFilesRequired;
+  document.getElementById('mobile-key-status').innerText = (collectedFiles === totalFilesRequired) ? "UNLOCKED" : "LOCKED";
+  document.getElementById('mobile-sprint-bar-fill').style.width = (stamina / maxStamina) * 100 + "%";
   document.getElementById('mobile-quest-text').textContent = quests[currentQuestIndex];
 }
 
-// --- Animate Loop Integration ---
+// Animate loop
 function animate() {
   requestAnimationFrame(animate);
 
   if (gameActive) {
-    // existing game update logic...
-    // movement, collisions, AI, etc.
+    // --- GAME LOGIC ---
+    // Movement
+    updatePlayerMovement();
+    // Collision detection
+    checkCollisions();
+    // AI updates
+    updateGhostAI();
+    // Stamina & sanity
+    updateStamina();
+    updateSanity();
+    // Ambient effects
+    updateAmbience();
   }
 
-  // Update desktop HUD
   updateHUD();
-
-  // Update mobile HUD only when in gameplay
-  if (isMobileDevice()) {
-    updateMobileHUD();
-  }
+  if (isMobileDevice()) updateMobileHUD();
 
   renderer.render(scene, camera);
 }
+
 
 
 window.onload = init;
