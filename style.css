@@ -426,12 +426,13 @@ body, html {
     100% { transform: translate(-1px, -1px); }
 }
 
+/* Controls Layout */
 #mobile-controls {
   position: absolute;
   inset: 0;
   z-index: 2000;
   display: none;
-  pointer-events: none; /* only buttons/joystick catch events */
+  pointer-events: none;
 }
 
 .pause-btn {
@@ -478,22 +479,26 @@ body, html {
 .icon-btn {
   background: rgba(30,30,30,0.8);
   border: 1px solid #550000;
-  color: #fff;
-  font-size: 22px;
-  padding: 14px;
   border-radius: 50%;
   min-width: 55px;
   min-height: 55px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 10px;
+}
+
+.icon-btn img {
+  width: 28px;
+  height: 28px;
+  pointer-events: none;
 }
 
 .icon-btn:active {
   background: #550000;
 }
 
-/* Mobile HUD hidden in menus */
-.screen, .pause-overlay {
-  /* menus already styled */
-}
+/* HUD hidden in menus */
 #mobile-hud {
   position: absolute;
   top: 15px;
@@ -505,4 +510,40 @@ body, html {
   font-size: 12px;
   display: none;
 }
+
+/* Responsive Menu */
+.screen .menu-box {
+  max-width: 90%;
+  font-size: 16px;
+  padding: 12px;
+}
+
+@media (max-width: 480px) {
+  .screen .menu-box {
+    font-size: 14px;
+    padding: 8px;
+  }
+  .screen .menu-box h1 {
+    font-size: 20px;
+  }
+  .menu-options button {
+    font-size: 14px;
+    padding: 8px;
+  }
+}
+
+@media (min-width: 481px) and (max-width: 768px) {
+  .screen .menu-box {
+    font-size: 15px;
+    padding: 10px;
+  }
+  .screen .menu-box h1 {
+    font-size: 22px;
+  }
+  .menu-options button {
+    font-size: 15px;
+    padding: 10px;
+  }
+}
+
 
