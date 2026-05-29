@@ -1,73 +1,156 @@
+// =========================
+// FULL FIXED MOVEMENT +
+// FLASHLIGHT SYSTEM
+// =========================
+
 // --- Core System Global State References ---
 let scene, camera, renderer, gltfLoader, animationMixer;
-let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+
+let moveForward = false;
+let moveBackward = false;
+let moveLeft = false;
+let moveRight = false;
+
 let prevTime = performance.now();
+
 const clock = new THREE.Clock();
 
 let horrorEntity = null;
+
 let gameActive = false;
+
 let isPaused = false;
+
 let escapeDoor = null;
 
-// --- Camera Zoom System ---
+// =========================
+// CAMERA ZOOM
+// =========================
+
 let cameraFov = 65;
+
 const defaultFov = 65;
+
 const zoomedFov = 35;
+
 let isZooming = false;
 
-// --- Monster Upgrade System ---
+// =========================
+// FLASHLIGHT
+// =========================
+
+let flashlightNode;
+
+// =========================
+// MONSTER
+// =========================
+
 let monsterBaseSpeed = 2.8;
+
 let monsterScaleMultiplier = 11;
 
-// --- Audio Stream Context Architecture ---
+// =========================
+// AUDIO
+// =========================
+
 let audioCtx = null;
+
 let monsterTrackBuffer = null;
+
 let monsterAudioSource = null;
+
 let monsterGainNode = null;
+
 let breathingInterval = null;
 
-// --- Jumpscare Audio ---
 let jumpscareBuffer = null;
+
 let jumpscareSource = null;
 
-// --- Document Objective Tracking Mechanics ---
+// =========================
+// FILES
+// =========================
+
 let collectedFiles = 0;
+
 const totalFilesRequired = 7;
+
 let evidenceFileMeshes = [];
 
-// --- Stamina Physical Properties & States ---
+// =========================
+// STAMINA
+// =========================
+
 let stamina = 100;
+
 const maxStamina = 100;
+
 let isSprinting = false;
+
 let isExhausted = false;
 
-// --- Jump State Mechanics ---
+// =========================
+// JUMP
+// =========================
+
 let isJumping = false;
+
 let verticalVelocity = 0;
+
 const gravityConstant = 32.0;
+
 let defaultPlayerHeight = 1.7;
 
-// --- Raycast Vector Math Engine ---
-const crosshairRaycaster = new THREE.Raycaster();
-const screenCenterVector = new THREE.Vector2(0, 0);
+// =========================
+// COLLISION
+// =========================
 
-// --- Collision Geometry Boundaries ---
 let wallBoxes = [];
+
 const playerRadius = 0.45;
 
-// --- DOM References ---
-const startScreen = document.getElementById('start-screen');
-const gameOverScreen = document.getElementById('game-over-screen');
-const initializeBtn = document.getElementById('initialize-btn');
-const jumpscareOverlay = document.getElementById('jumpscare-overlay');
-const filesCountText = document.getElementById('files-count');
-const keyStatusText = document.getElementById('key-status');
-const sprintBarFill = document.getElementById('sprint-bar-fill');
-const pauseScreen = document.getElementById('pause-screen');
+// =========================
+// RAYCAST
+// =========================
+
+const crosshairRaycaster =
+    new THREE.Raycaster();
+
+const screenCenterVector =
+    new THREE.Vector2(0,0);
+
+// =========================
+// DOM
+// =========================
+
+const startScreen =
+    document.getElementById('start-screen');
+
+const initializeBtn =
+    document.getElementById('initialize-btn');
+
+const jumpscareOverlay =
+    document.getElementById('jumpscare-overlay');
+
+const filesCountText =
+    document.getElementById('files-count');
+
+const keyStatusText =
+    document.getElementById('key-status');
+
+const sprintBarFill =
+    document.getElementById('sprint-bar-fill');
+
+// =========================
+// SETTINGS
+// =========================
 
 let mouseSensitivity = 0.0022;
 
-// --- Start Game ---
+// =========================
+// START GAME
+// =========================
+
 initializeBtn.addEventListener('click', () => {
 
     startScreen.style.display = 'none';
@@ -81,34 +164,10 @@ initializeBtn.addEventListener('click', () => {
     gameActive = true;
 });
 
-// --- Pointer Lock ---
-document.addEventListener('pointerlockchange', () => {
+// =========================
+// AUDIO ENGINE
+// =========================
 
-    if (
-        gameOverScreen.style.display === 'flex' ||
-        jumpscareOverlay.style.display === 'block'
-    ) {
-        return;
-    }
-
-    gameActive =
-        (document.pointerLockElement === document.body);
-
-    if (!gameActive && !isPaused) {
-
-        startScreen.style.display = 'flex';
-
-        if (monsterGainNode && audioCtx) {
-
-            monsterGainNode.gain.setValueAtTime(
-                0,
-                audioCtx.currentTime
-            );
-        }
-    }
-});
-
-// --- Audio Engine ---
 function initAudioEngine() {
 
     if (audioCtx) {
@@ -129,26 +188,16 @@ function initAudioEngine() {
     monsterGainNode =
         audioCtx.createGain();
 
-    monsterGainNode.gain.setValueAtTime(
-        0,
-        audioCtx.currentTime
-    );
+    monsterGainNode.gain.value = 0;
 
     monsterGainNode.connect(
         audioCtx.destination
     );
 
-    // Monster Ambient
+    // MONSTER AMBIENT
     fetch('./monster_ambient.mp3')
 
-        .then(response => {
-
-            if (!response.ok) {
-                throw new Error();
-            }
-
-            return response.arrayBuffer();
-        })
+        .then(r => r.arrayBuffer())
 
         .then(data =>
             audioCtx.decodeAudioData(data)
@@ -161,17 +210,10 @@ function initAudioEngine() {
             startMonsterAmbientLoop();
         });
 
-    // Jumpscare Audio
+    // JUMPSCARE
     fetch('./jumpscare.mp3')
 
-        .then(response => {
-
-            if (!response.ok) {
-                throw new Error();
-            }
-
-            return response.arrayBuffer();
-        })
+        .then(r => r.arrayBuffer())
 
         .then(data =>
             audioCtx.decodeAudioData(data)
@@ -185,7 +227,12 @@ function initAudioEngine() {
 
 function startMonsterAmbientLoop() {
 
-    if (!audioCtx || !monsterTrackBuffer) return;
+    if (
+        !audioCtx ||
+        !monsterTrackBuffer
+    ) {
+        return;
+    }
 
     if (monsterAudioSource) {
 
@@ -211,31 +258,32 @@ function startMonsterAmbientLoop() {
     monsterAudioSource.start(0);
 }
 
-// --- Breathing System ---
+// =========================
+// BREATHING
+// =========================
+
 function startBreathingEngine() {
 
     if (breathingInterval) {
-        clearInterval(breathingInterval);
+
+        clearInterval(
+            breathingInterval
+        );
     }
 
     breathingInterval = setInterval(() => {
 
         if (!gameActive) return;
 
-        let panicIntensity =
-            (
-                stamina < 35
-            )
-            ? 0.15
-            : (
-                isSprinting
-                ? 0.06
-                : 0.01
-            );
+        if (
+            stamina < 75 ||
+            isSprinting
+        ) {
 
-        if (stamina < 75 || isSprinting) {
             playProceduralBreathSigh(
-                panicIntensity
+                stamina < 35
+                ? 0.15
+                : 0.05
             );
         }
 
@@ -265,7 +313,9 @@ function playProceduralBreathSigh(volume) {
         buffer.getChannelData(0);
 
     for (let i = 0; i < bufferSize; i++) {
-        data[i] = Math.random() * 2 - 1;
+
+        data[i] =
+            Math.random() * 2 - 1;
     }
 
     const noiseNode =
@@ -278,10 +328,8 @@ function playProceduralBreathSigh(volume) {
 
     filterNode.type = 'lowpass';
 
-    filterNode.frequency.setValueAtTime(
-        stamina < 35 ? 450 : 300,
-        audioCtx.currentTime
-    );
+    filterNode.frequency.value =
+        350;
 
     const gainNode =
         audioCtx.createGain();
@@ -293,17 +341,22 @@ function playProceduralBreathSigh(volume) {
 
     gainNode.gain.exponentialRampToValueAtTime(
         0.001,
-        audioCtx.currentTime + 0.35
+        audioCtx.currentTime + 0.4
     );
 
     noiseNode.connect(filterNode);
+
     filterNode.connect(gainNode);
+
     gainNode.connect(audioCtx.destination);
 
     noiseNode.start();
 }
 
-// --- Engine Init ---
+// =========================
+// INIT
+// =========================
+
 function init() {
 
     scene = new THREE.Scene();
@@ -317,11 +370,12 @@ function init() {
             0.14
         );
 
-    // Camera
+    // CAMERA
     camera =
         new THREE.PerspectiveCamera(
             cameraFov,
-            window.innerWidth / window.innerHeight,
+            window.innerWidth /
+            window.innerHeight,
             0.1,
             1000
         );
@@ -332,11 +386,12 @@ function init() {
         0
     );
 
-    // Renderer
+    camera.rotation.order = 'YXZ';
+
+    // RENDERER
     renderer =
         new THREE.WebGLRenderer({
-            antialias: false,
-            powerPreference: "high-performance"
+            antialias: false
         });
 
     renderer.setSize(
@@ -345,7 +400,10 @@ function init() {
     );
 
     renderer.setPixelRatio(
-        Math.min(window.devicePixelRatio, 1.2)
+        Math.min(
+            window.devicePixelRatio,
+            1.2
+        )
     );
 
     renderer.outputEncoding =
@@ -355,11 +413,11 @@ function init() {
         .getElementById('canvas-container')
         .appendChild(renderer.domElement);
 
-    // Lights
+    // LIGHTS
     const ambientFloorLight =
         new THREE.AmbientLight(
             0xffffff,
-            0.6
+            0.55
         );
 
     scene.add(ambientFloorLight);
@@ -367,47 +425,58 @@ function init() {
     const directionalSun =
         new THREE.DirectionalLight(
             0xffffff,
-            0.5
+            0.45
         );
 
-    directionalSun.position.set(5,15,5);
+    directionalSun.position.set(
+        5,
+        15,
+        5
+    );
 
     scene.add(directionalSun);
 
-    // Flashlight
-    const flashlightNode =
+    // =========================
+    // FLASHLIGHT FIX
+    // =========================
+
+    flashlightNode =
         new THREE.SpotLight(
-            0xfff5d1,
-            8,
-            24,
-            Math.PI / 4.5,
-            0.5,
-            1.3
+            0xffe8b5,
+            12,
+            30,
+            Math.PI / 5,
+            0.45,
+            1.4
         );
+
+    flashlightNode.position.set(
+        0,
+        0,
+        0
+    );
 
     camera.add(flashlightNode);
 
     flashlightNode.target =
         new THREE.Object3D();
 
-    camera.add(flashlightNode.target);
-
     flashlightNode.target.position.set(
         0,
         0,
-        -1
+        -10
+    );
+
+    camera.add(
+        flashlightNode.target
     );
 
     scene.add(camera);
 
-    // World
+    // WORLD
     buildSectorMap();
 
-    buildThresholdDoor(-8,0,-38);
-
-    spawnProceduralEvidenceFiles();
-
-    // Monster
+    // MONSTER
     gltfLoader =
         new THREE.GLTFLoader();
 
@@ -417,7 +486,8 @@ function init() {
 
         (gltf) => {
 
-            horrorEntity = gltf.scene;
+            horrorEntity =
+                gltf.scene;
 
             horrorEntity.position.set(
                 0,
@@ -425,26 +495,11 @@ function init() {
                 -30
             );
 
-            // BIGGER MONSTER
             horrorEntity.scale.set(
                 monsterScaleMultiplier,
                 monsterScaleMultiplier,
                 monsterScaleMultiplier
             );
-
-            horrorEntity.traverse((child) => {
-
-                if (child.isMesh) {
-
-                    child.material.needsUpdate = true;
-
-                    if (child.material.map) {
-
-                        child.material.map.encoding =
-                            THREE.sRGBEncoding;
-                    }
-                }
-            });
 
             if (
                 gltf.animations &&
@@ -477,134 +532,157 @@ function init() {
     animate();
 }
 
-// --- Controls ---
+// =========================
+// CONTROLS
+// =========================
+
 function setupControlBindings() {
 
-    document.addEventListener('mousemove', (e) => {
+    // CAMERA LOOK
+    document.addEventListener(
+        'mousemove',
+        (e) => {
 
-        if (!gameActive) return;
+            if (!gameActive) return;
 
-        camera.rotation.y -=
-            e.movementX * mouseSensitivity;
+            camera.rotation.y -=
+                e.movementX *
+                mouseSensitivity;
 
-        camera.rotation.x -=
-            e.movementY * mouseSensitivity;
+            camera.rotation.x -=
+                e.movementY *
+                mouseSensitivity;
 
-        camera.rotation.x = Math.max(
-            -Math.PI / 2.2,
-            Math.min(
-                Math.PI / 2.2,
-                camera.rotation.x
-            )
-        );
-    });
-
-    camera.rotation.order = "YXZ";
-
-    // Mouse
-    document.addEventListener('mousedown', (e) => {
-
-        if (!gameActive) return;
-
-        // Left click pickup
-        if (e.button === 0) {
-            attemptItemPickup();
+            camera.rotation.x =
+                Math.max(
+                    -Math.PI / 2.1,
+                    Math.min(
+                        Math.PI / 2.1,
+                        camera.rotation.x
+                    )
+                );
         }
+    );
 
-        // Right click zoom
-        if (e.button === 2) {
-            isZooming = true;
+    // ZOOM
+    document.addEventListener(
+        'mousedown',
+        (e) => {
+
+            if (e.button === 2) {
+
+                isZooming = true;
+            }
         }
-    });
+    );
 
-    document.addEventListener('mouseup', (e) => {
+    document.addEventListener(
+        'mouseup',
+        (e) => {
 
-        if (e.button === 2) {
-            isZooming = false;
+            if (e.button === 2) {
+
+                isZooming = false;
+            }
         }
-    });
+    );
 
-    document.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-    });
+    document.addEventListener(
+        'contextmenu',
+        (e) => e.preventDefault()
+    );
 
-    // Keyboard
-    document.addEventListener('keydown', (e) => {
+    // KEYS
+    document.addEventListener(
+        'keydown',
+        (e) => {
 
-        switch(e.code) {
+            switch(e.code) {
 
-            case 'KeyW':
-                moveForward = true;
-                break;
+                case 'KeyW':
+                    moveForward = true;
+                    break;
 
-            case 'KeyS':
-                moveBackward = true;
-                break;
+                case 'KeyS':
+                    moveBackward = true;
+                    break;
 
-            case 'KeyA':
-                moveLeft = true;
-                break;
+                case 'KeyA':
+                    moveLeft = true;
+                    break;
 
-            case 'KeyD':
-                moveRight = true;
-                break;
+                case 'KeyD':
+                    moveRight = true;
+                    break;
 
-            case 'ShiftLeft':
-            case 'ShiftRight':
+                case 'ShiftLeft':
+                case 'ShiftRight':
 
-                if (!isExhausted) {
-                    isSprinting = true;
-                }
+                    if (!isExhausted) {
+                        isSprinting = true;
+                    }
 
-                break;
+                    break;
+            }
         }
-    });
+    );
 
-    document.addEventListener('keyup', (e) => {
+    document.addEventListener(
+        'keyup',
+        (e) => {
 
-        switch(e.code) {
+            switch(e.code) {
 
-            case 'KeyW':
-                moveForward = false;
-                break;
+                case 'KeyW':
+                    moveForward = false;
+                    break;
 
-            case 'KeyS':
-                moveBackward = false;
-                break;
+                case 'KeyS':
+                    moveBackward = false;
+                    break;
 
-            case 'KeyA':
-                moveLeft = false;
-                break;
+                case 'KeyA':
+                    moveLeft = false;
+                    break;
 
-            case 'KeyD':
-                moveRight = false;
-                break;
+                case 'KeyD':
+                    moveRight = false;
+                    break;
 
-            case 'ShiftLeft':
-            case 'ShiftRight':
-                isSprinting = false;
-                break;
+                case 'ShiftLeft':
+                case 'ShiftRight':
+                    isSprinting = false;
+                    break;
+            }
         }
-    });
+    );
 }
 
-// --- Animate ---
+// =========================
+// ANIMATE
+// =========================
+
 function animate() {
 
-    requestAnimationFrame(animate);
+    requestAnimationFrame(
+        animate
+    );
 
-    const currentTime = performance.now();
+    const currentTime =
+        performance.now();
 
     const frameDelta =
-        (currentTime - prevTime) / 1000;
+        (currentTime - prevTime)
+        / 1000;
 
     if (animationMixer) {
+
         animationMixer.update(
             clock.getDelta()
         );
     }
 
-    // Zoom
+    // ZOOM
     const targetFov =
         isZooming
         ? zoomedFov
@@ -617,13 +695,143 @@ function animate() {
 
     camera.updateProjectionMatrix();
 
-    // Game
+    // FLASHLIGHT FLICKER
+    flashlightNode.intensity =
+        10 +
+        Math.sin(currentTime * 0.02)
+        * 0.6;
+
     if (gameActive) {
 
-        // Monster
+        // =========================
+        // MOVEMENT FIX
+        // =========================
+
+        const userIsMoving =
+            moveForward ||
+            moveBackward ||
+            moveLeft ||
+            moveRight;
+
+        // STAMINA
+        if (
+            isSprinting &&
+            userIsMoving
+        ) {
+
+            stamina -=
+                18.5 * frameDelta;
+
+            if (stamina <= 0) {
+
+                stamina = 0;
+
+                isSprinting = false;
+
+                isExhausted = true;
+
+                sprintBarFill.classList.add(
+                    'exhausted'
+                );
+            }
+
+        } else {
+
+            stamina +=
+                (userIsMoving
+                ? 7.5
+                : 14.0)
+                * frameDelta;
+
+            if (stamina > maxStamina) {
+
+                stamina = maxStamina;
+            }
+
+            if (
+                isExhausted &&
+                stamina >= 30
+            ) {
+
+                isExhausted = false;
+
+                sprintBarFill.classList.remove(
+                    'exhausted'
+                );
+            }
+        }
+
+        sprintBarFill.style.width =
+            (
+                (stamina / maxStamina)
+                * 100
+            ) + "%";
+
+        // SPEED
+        let moveSpeed =
+            isSprinting
+            ? 11.5
+            : 5.8;
+
+        // DIRECTION
+        const forward =
+            new THREE.Vector3();
+
+        camera.getWorldDirection(
+            forward
+        );
+
+        forward.y = 0;
+
+        forward.normalize();
+
+        const right =
+            new THREE.Vector3();
+
+        right.crossVectors(
+            forward,
+            new THREE.Vector3(0,1,0)
+        );
+
+        right.normalize();
+
+        // VELOCITY
+        const velocity =
+            new THREE.Vector3();
+
+        if (moveForward) {
+            velocity.add(forward);
+        }
+
+        if (moveBackward) {
+            velocity.sub(forward);
+        }
+
+        if (moveRight) {
+            velocity.sub(right);
+        }
+
+        if (moveLeft) {
+            velocity.add(right);
+        }
+
+        velocity.normalize();
+
+        velocity.multiplyScalar(
+            moveSpeed * frameDelta
+        );
+
+        camera.position.add(
+            velocity
+        );
+
+        // =========================
+        // MONSTER
+        // =========================
+
         if (horrorEntity) {
 
-            let distanceToTarget =
+            const distanceToTarget =
                 horrorEntity.position.distanceTo(
                     camera.position
                 );
@@ -636,7 +844,6 @@ function animate() {
                 )
             );
 
-            // Dynamic Monster Speed
             let monsterSpeed =
                 monsterBaseSpeed +
                 (collectedFiles * 0.9);
@@ -645,30 +852,36 @@ function animate() {
                 monsterSpeed += 1.8;
             }
 
-            if (stamina < 30) {
-                monsterSpeed += 1.2;
-            }
-
-            if (isZooming) {
-                monsterSpeed += 0.6;
-            }
-
             horrorEntity.translateZ(
-                monsterSpeed * frameDelta
+                monsterSpeed *
+                frameDelta
             );
 
-            // Dynamic Monster Growth
-            let growth =
-                11 +
-                (collectedFiles * 0.45);
+            // AUDIO
+            if (
+                monsterGainNode &&
+                audioCtx
+            ) {
 
-            horrorEntity.scale.set(
-                growth,
-                growth,
-                growth
-            );
+                let targetVolume =
+                    (
+                        distanceToTarget < 28
+                    )
+                    ? Math.pow(
+                        1 -
+                        (distanceToTarget / 28),
+                        2
+                    ) * 0.85
+                    : 0;
 
-            // Camera Distortion
+                monsterGainNode.gain
+                    .linearRampToValueAtTime(
+                        targetVolume,
+                        audioCtx.currentTime + 0.1
+                    );
+            }
+
+            // CAMERA SHAKE
             if (distanceToTarget < 10) {
 
                 camera.rotation.z =
@@ -681,51 +894,39 @@ function animate() {
                 camera.rotation.z = 0;
             }
 
-            // Audio Distance
-            if (
-                monsterGainNode &&
-                audioCtx &&
-                audioCtx.state !== 'suspended'
-            ) {
-
-                let targetVolume =
-                    (
-                        distanceToTarget < 28
-                    )
-                    ? Math.pow(
-                        1 - (distanceToTarget / 28),
-                        2
-                    ) * 0.85
-                    : 0;
-
-                monsterGainNode.gain
-                    .linearRampToValueAtTime(
-                        targetVolume,
-                        audioCtx.currentTime + 0.1
-                    );
-            }
-
-            // Jumpscare Trigger
+            // JUMPSCARE
             if (distanceToTarget < 3.4) {
+
                 triggerAnomalyJumpscare();
             }
         }
     }
 
+    // FLASHLIGHT FOLLOW
+    camera.updateMatrixWorld();
+
     prevTime = currentTime;
 
-    renderer.render(scene, camera);
+    renderer.render(
+        scene,
+        camera
+    );
 }
 
-// --- Jumpscare ---
+// =========================
+// JUMPSCARE
+// =========================
+
 function triggerAnomalyJumpscare() {
 
     gameActive = false;
 
     document.exitPointerLock();
 
-    // STOP AMBIENT
-    if (monsterGainNode && audioCtx) {
+    if (
+        monsterGainNode &&
+        audioCtx
+    ) {
 
         monsterGainNode.gain.setValueAtTime(
             0,
@@ -733,8 +934,11 @@ function triggerAnomalyJumpscare() {
         );
     }
 
-    // PLAY JUMPSCARE AUDIO
-    if (audioCtx && jumpscareBuffer) {
+    // SOUND
+    if (
+        audioCtx &&
+        jumpscareBuffer
+    ) {
 
         jumpscareSource =
             audioCtx.createBufferSource();
@@ -749,19 +953,23 @@ function triggerAnomalyJumpscare() {
         jumpscareSource.start(0);
     }
 
-    // SHOW OVERLAY
-    jumpscareOverlay.style.display = "block";
+    jumpscareOverlay.style.display =
+        'block';
 
     setTimeout(() => {
 
-        jumpscareOverlay.style.display = "none";
+        jumpscareOverlay.style.display =
+            'none';
 
         resetGameEnvironment();
 
     }, 1500);
 }
 
-// --- Reset ---
+// =========================
+// RESET
+// =========================
+
 function resetGameEnvironment() {
 
     camera.position.set(
@@ -770,9 +978,11 @@ function resetGameEnvironment() {
         0
     );
 
-    camera.rotation.set(0,0,0);
-
-    collectedFiles = 0;
+    camera.rotation.set(
+        0,
+        0,
+        0
+    );
 
     stamina = maxStamina;
 
@@ -790,7 +1000,10 @@ function resetGameEnvironment() {
     document.body.requestPointerLock();
 }
 
-// --- Resize ---
+// =========================
+// RESIZE
+// =========================
+
 function handleViewportResize() {
 
     camera.aspect =
@@ -805,11 +1018,15 @@ function handleViewportResize() {
     );
 }
 
-// --- Placeholder Functions ---
+// =========================
+// PLACEHOLDER
+// =========================
+
 function buildSectorMap() {}
-function buildThresholdDoor() {}
-function spawnProceduralEvidenceFiles() {}
 function attemptItemPickup() {}
 
-// --- Start ---
+// =========================
+// START
+// =========================
+
 window.onload = init;
