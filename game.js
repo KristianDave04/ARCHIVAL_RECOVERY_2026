@@ -536,13 +536,8 @@ function setupMobileControls() {
   const center = { x: container.offsetWidth / 2, y: container.offsetHeight / 2 };
   let active = false;
 
-  container.addEventListener('touchstart', (e) => {
-    active = true;
-    handleJoystick(e.touches[0]);
-  });
-  container.addEventListener('touchmove', (e) => {
-    if (active) handleJoystick(e.touches[0]);
-  });
+  container.addEventListener('touchstart', (e) => { active = true; handleJoystick(e.touches[0]); });
+  container.addEventListener('touchmove', (e) => { if (active) handleJoystick(e.touches[0]); });
   container.addEventListener('touchend', () => {
     active = false;
     joystick.style.left = center.x - joystick.offsetWidth / 2 + 'px';
@@ -554,8 +549,7 @@ function setupMobileControls() {
     const rect = container.getBoundingClientRect();
     const x = touch.clientX - rect.left;
     const y = touch.clientY - rect.top;
-    const dx = x - center.x;
-    const dy = y - center.y;
+    const dx = x - center.x, dy = y - center.y;
     const dist = Math.sqrt(dx*dx + dy*dy);
     const maxDist = container.offsetWidth / 2;
     const angle = Math.atan2(dy, dx);
@@ -570,13 +564,12 @@ function setupMobileControls() {
     moveRight = dx > 20;
   }
 
-  // Jump
+  // Buttons
   document.getElementById('btn-jump').addEventListener('touchstart', () => executeJumpLeap());
-  // Sprint
   document.getElementById('btn-sprint').addEventListener('touchstart', () => { if (!isExhausted) isSprinting = true; });
   document.getElementById('btn-sprint').addEventListener('touchend', () => isSprinting = false);
-  // Interact
   document.getElementById('btn-interact').addEventListener('touchstart', () => attemptItemPickup());
+
   // Pause
   document.getElementById('btn-pause').addEventListener('touchstart', () => {
     gameActive = false;
@@ -584,7 +577,7 @@ function setupMobileControls() {
     document.exitPointerLock();
     pauseScreen.style.display = 'flex';
     startScreen.style.display = 'none';
-    document.getElementById('mobile-hud').style.display = 'none'; // hide HUD in menu
+    document.getElementById('mobile-hud').style.display = 'none';
   });
 }
 
@@ -610,17 +603,34 @@ function setupMobileCamera() {
   document.addEventListener('touchend', () => { lastX = null; lastY = null; });
 }
 
-// Update HUD only during gameplay
+// HUD only in gameplay
 function updateMobileHUD() {
-  if (!gameActive || pauseActive) {
+  if (!gameActive || pauseActive || startScreen.style.display === 'flex') {
     document.getElementById('mobile-hud').style.display = 'none';
     return;
   }
-  document.getElementById('mobile-hud').style.display = 'block';
-  document.getElementById('mobile-files-count').innerText = collectedFiles + "/" + totalFilesRequired;
-  document.getElementById('mobile-key-status').innerText = (collectedFiles === totalFilesRequired) ? "UNLOCKED" : "LOCKED";
-  document.getElementById('mobile-sprint-bar-fill').style.width = (stamina / maxStamina) * 100 + "%";
   document.getElementById('mobile-quest-text').textContent = quests[currentQuestIndex];
 }
+
+// --- Animate Loop Integration ---
+function animate() {
+  requestAnimationFrame(animate);
+
+  if (gameActive) {
+    // existing game update logic...
+    // movement, collisions, AI, etc.
+  }
+
+  // Update desktop HUD
+  updateHUD();
+
+  // Update mobile HUD only when in gameplay
+  if (isMobileDevice()) {
+    updateMobileHUD();
+  }
+
+  renderer.render(scene, camera);
+}
+
 
 window.onload = init;
