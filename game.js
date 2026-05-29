@@ -516,17 +516,17 @@ skipCutsceneBtn.addEventListener('click', () => { cutsceneVideo.pause(); cutscen
 cutsceneVideo.addEventListener('ended', () => { cutsceneScreen.style.display = 'none'; startGameplay(); });
 function startGameplay() { hasStartedGame = true; document.body.requestPointerLock(); resetGameEnvironment(); }
 
+let mobileLookSensitivity = 0.0015;
+
 function isMobileDevice() {
   return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 }
 
 window.addEventListener('load', () => {
   if (isMobileDevice()) {
-    document.getElementById('mobile-controls').style.display = 'flex';
-    document.getElementById('mobile-hud').style.display = 'block';
+    document.getElementById('mobile-controls').style.display = 'block';
     setupMobileControls();
     setupMobileCamera();
-    setupMobileSettings();
   }
 });
 
@@ -534,19 +534,15 @@ function setupMobileControls() {
   const joystick = document.getElementById('joystick');
   const container = document.getElementById('joystick-container');
   const center = { x: container.offsetWidth / 2, y: container.offsetHeight / 2 };
-
   let active = false;
 
   container.addEventListener('touchstart', (e) => {
     active = true;
     handleJoystick(e.touches[0]);
   });
-
   container.addEventListener('touchmove', (e) => {
-    if (!active) return;
-    handleJoystick(e.touches[0]);
+    if (active) handleJoystick(e.touches[0]);
   });
-
   container.addEventListener('touchend', () => {
     active = false;
     joystick.style.left = center.x - joystick.offsetWidth / 2 + 'px';
@@ -558,12 +554,10 @@ function setupMobileControls() {
     const rect = container.getBoundingClientRect();
     const x = touch.clientX - rect.left;
     const y = touch.clientY - rect.top;
-
     const dx = x - center.x;
     const dy = y - center.y;
     const dist = Math.sqrt(dx*dx + dy*dy);
     const maxDist = container.offsetWidth / 2;
-
     const angle = Math.atan2(dy, dx);
     const limitedDist = Math.min(dist, maxDist - joystick.offsetWidth/2);
 
@@ -576,18 +570,13 @@ function setupMobileControls() {
     moveRight = dx > 20;
   }
 
-  // Sprint
-  document.getElementById('btn-sprint').addEventListener('touchstart', () => {
-    if (!isExhausted) isSprinting = true;
-  });
-  document.getElementById('btn-sprint').addEventListener('touchend', () => isSprinting = false);
-
   // Jump
   document.getElementById('btn-jump').addEventListener('touchstart', () => executeJumpLeap());
-
+  // Sprint
+  document.getElementById('btn-sprint').addEventListener('touchstart', () => { if (!isExhausted) isSprinting = true; });
+  document.getElementById('btn-sprint').addEventListener('touchend', () => isSprinting = false);
   // Interact
   document.getElementById('btn-interact').addEventListener('touchstart', () => attemptItemPickup());
-
   // Pause
   document.getElementById('btn-pause').addEventListener('touchstart', () => {
     gameActive = false;
@@ -595,92 +584,43 @@ function setupMobileControls() {
     document.exitPointerLock();
     pauseScreen.style.display = 'flex';
     startScreen.style.display = 'none';
-    document.getElementById('mobile-settings').style.display = 'flex'; // open mobile settings
+    document.getElementById('mobile-hud').style.display = 'none'; // hide HUD in menu
   });
 }
 
 function setupMobileCamera() {
   let lastX = null, lastY = null;
-
   document.addEventListener('touchstart', (e) => {
     if (e.touches.length === 1) {
       lastX = e.touches[0].clientX;
       lastY = e.touches[0].clientY;
     }
   });
-
   document.addEventListener('touchmove', (e) => {
     if (e.touches.length === 1 && lastX !== null) {
       const dx = e.touches[0].clientX - lastX;
       const dy = e.touches[0].clientY - lastY;
-
-      camera.rotation.y -= dx * 0.0015; // smoother sensitivity
-      camera.rotation.x -= dy * 0.0015;
+      camera.rotation.y -= dx * mobileLookSensitivity;
+      camera.rotation.x -= dy * mobileLookSensitivity;
       camera.rotation.x = Math.max(-Math.PI/2.2, Math.min(Math.PI/2.2, camera.rotation.x));
-
       lastX = e.touches[0].clientX;
       lastY = e.touches[0].clientY;
     }
   });
-
-  document.addEventListener('touchend', () => {
-    lastX = null;
-    lastY = null;
-  });
+  document.addEventListener('touchend', () => { lastX = null; lastY = null; });
 }
 
-function setupMobileSettings() {
-  const audioSlider = document.getElementById('mobile-audio');
-  const graphicsSlider = document.getElementById('mobile-graphics');
-  const sensitivitySlider = document.getElementById('mobile-sensitivity');
-  const closeBtn = document.getElementById('mobile-settings-close');
-
-  audioSlider.addEventListener('input', () => {
-    const volume = audioSlider.value / 100;
-    if (monsterGainNode) {
-      monsterGainNode.gain.value = volume;
-    }
-    // You can also adjust other audioCtx nodes here if needed
-  });
-
-  graphicsSlider.addEventListener('input', () => {
-    const quality = graphicsSlider.value;
-    // Example: adjust renderer pixel ratio or shadow quality
-    if (renderer) {
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, quality));
-    }
-  });
-
-  sensitivitySlider.addEventListener('input', () => {
-    const sens = sensitivitySlider.value;
-    // Store sensitivity multiplier for swipe camera
-    mobileLookSensitivity = sens * 0.0003; // base multiplier
-  });
-
-  closeBtn.addEventListener('click', () => {
-    document.getElementById('mobile-settings').style.display = 'none';
-    pauseScreen.style.display = 'none';
-    pauseActive = false;
-    gameActive = true;
-    document.body.requestPointerLock();
-  });
-}
-
-// --- Update Mobile HUD each frame ---
+// Update HUD only during gameplay
 function updateMobileHUD() {
-  const filesCount = document.getElementById('mobile-files-count');
-  const keyStatus = document.getElementById('mobile-key-status');
-  const sprintFill = document.getElementById('mobile-sprint-bar-fill');
-  const questText = document.getElementById('mobile-quest-text');
-
-  filesCount.innerText = collectedFiles + "/" + totalFilesRequired;
-  keyStatus.innerText = (collectedFiles === totalFilesRequired) ? "UNLOCKED" : "LOCKED";
-
-  const staminaPercentage = (stamina / maxStamina) * 100;
-  sprintFill.style.width = staminaPercentage + "%";
-
-  questText.textContent = quests[currentQuestIndex];
+  if (!gameActive || pauseActive) {
+    document.getElementById('mobile-hud').style.display = 'none';
+    return;
+  }
+  document.getElementById('mobile-hud').style.display = 'block';
+  document.getElementById('mobile-files-count').innerText = collectedFiles + "/" + totalFilesRequired;
+  document.getElementById('mobile-key-status').innerText = (collectedFiles === totalFilesRequired) ? "UNLOCKED" : "LOCKED";
+  document.getElementById('mobile-sprint-bar-fill').style.width = (stamina / maxStamina) * 100 + "%";
+  document.getElementById('mobile-quest-text').textContent = quests[currentQuestIndex];
 }
-
 
 window.onload = init;
