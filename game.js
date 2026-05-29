@@ -1,292 +1,318 @@
-// ============================================
-// ARCHIVAL RECOVERY 2026
-// FULL MOBILE + DESKTOP FIXED VERSION
-// ============================================
-
-// ============================================
-// GLOBALS
-// ============================================
-
+// --- Core System Global State References ---
 let scene, camera, renderer, gltfLoader, animationMixer;
-
-let moveForward = false;
-let moveBackward = false;
-let moveLeft = false;
-let moveRight = false;
-
+let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
 let prevTime = performance.now();
 const clock = new THREE.Clock();
 
 let horrorEntity = null;
+let gameActive = false;
+let isPaused = false; 
 let escapeDoor = null;
 
-let gameActive = false;
-let isPaused = false;
+// --- Camera Zoom System ---
+let cameraFov = 65;
+const defaultFov = 65;
+const zoomedFov = 35;
+let isZooming = false;
 
+// Audio Stream Context Architecture
+let audioCtx = null;
+let monsterTrackBuffer = null;
+let monsterAudioSource = null;
+let monsterGainNode = null;
+let breathingInterval = null;
+
+// Document Objective Tracking Mechanics
 let collectedFiles = 0;
-const totalFilesRequired = 7;
-
+const totalFilesRequired = 7; 
 let evidenceFileMeshes = [];
 
+// Stamina Physical Properties & States
 let stamina = 100;
 const maxStamina = 100;
-
 let isSprinting = false;
-let isExhausted = false;
+let isExhausted = false; 
 
+// Jump state mechanics
 let isJumping = false;
 let verticalVelocity = 0;
-
-const gravityConstant = 32;
-
+const gravityConstant = 32.0; 
 let defaultPlayerHeight = 1.7;
 
-let wallBoxes = [];
-
-const playerRadius = 0.45;
-
+// Raycast Vector Math Engine
 const crosshairRaycaster = new THREE.Raycaster();
 const screenCenterVector = new THREE.Vector2(0, 0);
 
+// Collision Geometry Boundaries
+let wallBoxes = [];
+const playerRadius = 0.45;
+
+// Dom Element Target Map Pointers
+const startScreen = document.getElementById('start-screen');
+const gameOverScreen = document.getElementById('game-over-screen');
+const initializeBtn = document.getElementById('initialize-btn');
+const retryBtn = document.getElementById('retry-btn');
+const jumpscareOverlay = document.getElementById('jumpscare-overlay');
+const filesCountText = document.getElementById('files-count');
+const keyStatusText = document.getElementById('key-status');
+const sprintBarFill = document.getElementById('sprint-bar-fill');
+const pauseScreen = document.getElementById('pause-screen');
+const resumeBtn = document.getElementById('resume-btn');
+const pauseSettingsBtn = document.getElementById('pause-settings-btn');
+const pauseQuitBtn = document.getElementById('pause-quit-btn');
+const cutsceneScreen = document.getElementById('cutscene-screen');
+const cutsceneVideo = document.getElementById('cutscene-video');
+const skipCutsceneBtn = document.getElementById('skip-cutscene-btn');
+const horrorQuoteText = document.getElementById('horror-quote');
+const getUpText = document.getElementById('get-up-text');
+
+let hasStartedGame = false;
 let mouseSensitivity = 0.0022;
 
-// ============================================
-// DOM
-// ============================================
+// Dread Quotes Bank Array
+const horrorQuotes = [
+    "This is not over...",
+    "Sen. Bato is getting away again, do it and collect some evidence.",
+    "The tape cannot be stopped.",
+    "You are running out of warehouse rooms.",
+    "It watches through the lens.",
+    "You are bound to the tracking cycle."
+];
 
-const startScreen =
-    document.getElementById("start-screen");
+// --- Event Handlers & Interface Directives ---
+initializeBtn.addEventListener('click', () => {
+    startScreen.style.display = 'none';
+    initAudioEngine();
+    startBreathingEngine();
+    hasStartedGame = true;
+    document.body.requestPointerLock();
+    gameActive = true;
+});
 
-const pauseScreen =
-    document.getElementById("pause-screen");
+// --- Pointer Lock Handler Handshaking ---
+document.addEventListener('pointerlockchange', () => {
+    if (gameOverScreen.style.display === 'flex' || jumpscareOverlay.style.display === 'block') {
+        return; 
+    }
 
-const gameOverScreen =
-    document.getElementById("game-over-screen");
+    gameActive = (document.pointerLockElement === document.body);
 
-const jumpscareOverlay =
-    document.getElementById("jumpscare-overlay");
+    if (!gameActive && !isPaused) {
+        startScreen.style.display = 'flex';
 
-const initializeBtn =
-    document.getElementById("initialize-btn");
+        if (monsterGainNode && audioCtx) {
+            monsterGainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+        }
+    }
+});
 
-const newGameBtn =
-    document.getElementById("newgame-btn");
+// --- Audio Generation Pipelines ---
+function initAudioEngine() {
+    if (audioCtx) {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        return;
+    }
 
-const resumeBtn =
-    document.getElementById("resume-btn");
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-const pauseSettingsBtn =
-    document.getElementById("pause-settings-btn");
+    monsterGainNode = audioCtx.createGain();
+    monsterGainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+    monsterGainNode.connect(audioCtx.destination);
 
-const pauseQuitBtn =
-    document.getElementById("pause-quit-btn");
+    fetch('./monster_ambient.mp3')
+        .then(response => {
+            if (!response.ok) throw new Error();
+            return response.arrayBuffer();
+        })
+        .then(data => audioCtx.decodeAudioData(data))
+        .then(buffer => {
+            monsterTrackBuffer = buffer;
+            startMonsterAmbientLoop();
+        })
+        .catch(err => console.error("Audio failed:", err));
+}
 
-const settingsBtn =
-    document.getElementById("settings-btn");
+function startMonsterAmbientLoop() {
+    if (!audioCtx || !monsterTrackBuffer) return;
 
-const creditsBtn =
-    document.getElementById("credits-btn");
+    if (monsterAudioSource) {
+        try {
+            monsterAudioSource.stop();
+        } catch(e) {}
 
-const backBtn =
-    document.getElementById("back-btn");
+        monsterAudioSource.disconnect();
+    }
 
-const creditsBackBtn =
-    document.getElementById("credits-back-btn");
+    monsterAudioSource = audioCtx.createBufferSource();
+    monsterAudioSource.buffer = monsterTrackBuffer;
+    monsterAudioSource.loop = true;
+    monsterAudioSource.connect(monsterGainNode);
+    monsterAudioSource.start(0);
+}
 
-const settingsScreen =
-    document.getElementById("settings-screen");
+function startBreathingEngine() {
+    if (breathingInterval) clearInterval(breathingInterval);
 
-const creditsScreen =
-    document.getElementById("credits-screen");
+    breathingInterval = setInterval(() => {
+        if (!gameActive) return;
 
-const filesCountText =
-    document.getElementById("files-count");
+        let panicIntensity =
+            (stamina < 35)
+            ? 0.15
+            : (isSprinting && (moveForward || moveBackward || moveLeft || moveRight)
+                ? 0.06
+                : 0.01);
 
-const keyStatusText =
-    document.getElementById("key-status");
+        if (stamina < 75 || isSprinting) {
+            playProceduralBreathSigh(panicIntensity);
+        }
+    }, 1200);
+}
 
-const sprintBarFill =
-    document.getElementById("sprint-bar-fill");
+function playProceduralBreathSigh(volume) {
+    if (!audioCtx || audioCtx.state === 'suspended') return;
 
-// ============================================
-// MOBILE
-// ============================================
+    const bufferSize = audioCtx.sampleRate * 0.4;
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
 
-const mobileControls =
-    document.getElementById("mobile-controls");
+    for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
+    }
 
-const joystickContainer =
-    document.getElementById("joystick-container");
+    const noiseNode = audioCtx.createBufferSource();
+    noiseNode.buffer = buffer;
 
-const joystick =
-    document.getElementById("joystick");
+    const filterNode = audioCtx.createBiquadFilter();
+    filterNode.type = 'lowpass';
+    filterNode.frequency.setValueAtTime(
+        stamina < 35 ? 450 : 300,
+        audioCtx.currentTime
+    );
 
-const btnSprint =
-    document.getElementById("btn-sprint");
+    const gainNode = audioCtx.createGain();
+    gainNode.gain.setValueAtTime(volume, audioCtx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(
+        0.001,
+        audioCtx.currentTime + 0.35
+    );
 
-const btnJump =
-    document.getElementById("btn-jump");
+    noiseNode.connect(filterNode);
+    filterNode.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
 
-const btnInteract =
-    document.getElementById("btn-interact");
+    noiseNode.start();
+}
 
-const btnPause =
-    document.getElementById("btn-pause");
-
-const isMobile =
-    /Android|iPhone|iPad|iPod/i
-    .test(navigator.userAgent);
-
-// ============================================
-// INIT
-// ============================================
-
+// --- Engine Init Bootup Sequencing ---
 function init() {
 
     scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x12120b);
+    scene.fog = new THREE.FogExp2(0x12120b, 0.14);
 
-    scene.background =
-        new THREE.Color(0x12120b);
-
-    scene.fog =
-        new THREE.FogExp2(0x12120b, 0.14);
-
-    camera =
-        new THREE.PerspectiveCamera(
-            65,
-            window.innerWidth /
-            window.innerHeight,
-            0.1,
-            1000
-        );
-
-    camera.position.set(
-        0,
-        defaultPlayerHeight,
-        0
+    // CAMERA
+    camera = new THREE.PerspectiveCamera(
+        cameraFov,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        1000
     );
 
-    renderer =
-        new THREE.WebGLRenderer({
-            antialias: false
-        });
+    camera.position.set(0, defaultPlayerHeight, 0);
 
-    renderer.setSize(
-        window.innerWidth,
-        window.innerHeight
-    );
+    // RENDERER
+    renderer = new THREE.WebGLRenderer({
+        antialias: false
+    });
 
-    renderer.setPixelRatio(
-        Math.min(
-            window.devicePixelRatio,
-            1.2
-        )
-    );
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.2));
+    renderer.outputEncoding = THREE.sRGBEncoding;
 
-    renderer.outputEncoding =
-        THREE.sRGBEncoding;
-
-    document
-        .getElementById("canvas-container")
+    document.getElementById('canvas-container')
         .appendChild(renderer.domElement);
 
-    // LIGHTS
-
-    const ambient =
-        new THREE.AmbientLight(
-            0xffffff,
-            0.6
-        );
-
-    scene.add(ambient);
-
-    const directional =
-        new THREE.DirectionalLight(
-            0xffffff,
-            0.5
-        );
-
-    directional.position.set(5,15,5);
-
-    scene.add(directional);
-
-    // FLASHLIGHT
-
-    const flashlight =
-        new THREE.SpotLight(
-            0xfff5d1,
-            8,
-            24,
-            Math.PI / 4.5,
-            0.5,
-            1.3
-        );
-
-    flashlight.position.set(0,0,0);
-
-    flashlight.target =
-        new THREE.Object3D();
-
-    flashlight.target.position.set(
-        0,
-        0,
-        -1
+    // LIGHTING
+    const ambientFloorLight = new THREE.AmbientLight(
+        0xffffff,
+        0.6
     );
 
-    camera.add(flashlight);
+    scene.add(ambientFloorLight);
 
-    camera.add(flashlight.target);
+    const directionalSun = new THREE.DirectionalLight(
+        0xffffff,
+        0.5
+    );
+
+    directionalSun.position.set(5, 15, 5);
+    scene.add(directionalSun);
+
+    // FLASHLIGHT
+    const flashlightNode = new THREE.SpotLight(
+        0xfff5d1,
+        8,
+        24,
+        Math.PI / 4.5,
+        0.5,
+        1.3
+    );
+
+    flashlightNode.position.set(0, 0, 0);
+
+    camera.add(flashlightNode);
+
+    flashlightNode.target = new THREE.Object3D();
+
+    camera.add(flashlightNode.target);
+
+    flashlightNode.target.position.set(0, 0, -1);
 
     scene.add(camera);
 
     // MAP
-
     buildSectorMap();
 
-    buildThresholdDoor(-8,0,-38);
+    // EXIT
+    buildThresholdDoor(-8, 0, -38);
 
+    // FILES
     spawnProceduralEvidenceFiles();
 
-    // MONSTER
-
-    gltfLoader =
-        new THREE.GLTFLoader();
+    // LOADER
+    gltfLoader = new THREE.GLTFLoader();
 
     gltfLoader.load(
-
-        "./monster.glb",
+        './monster.glb',
 
         (gltf) => {
 
-            horrorEntity =
-                gltf.scene;
+            horrorEntity = gltf.scene;
 
-            horrorEntity.position.set(
-                0,
-                0,
-                -30
-            );
+            horrorEntity.position.set(0, 0, -30);
+            horrorEntity.scale.set(7.5, 7.5, 7.5);
 
-            horrorEntity.scale.set(
-                7,
-                7,
-                7
-            );
+            horrorEntity.traverse((child) => {
 
-            if (
-                gltf.animations &&
-                gltf.animations.length > 0
-            ) {
+                if (child.isMesh) {
+
+                    child.material.needsUpdate = true;
+
+                    if (child.material.map) {
+                        child.material.map.encoding =
+                            THREE.sRGBEncoding;
+                    }
+                }
+            });
+
+            if (gltf.animations && gltf.animations.length > 0) {
 
                 animationMixer =
-                    new THREE.AnimationMixer(
-                        horrorEntity
-                    );
+                    new THREE.AnimationMixer(horrorEntity);
 
                 animationMixer
-                    .clipAction(
-                        gltf.animations[0]
-                    )
+                    .clipAction(gltf.animations[0])
                     .play();
             }
 
@@ -300,172 +326,201 @@ function init() {
         }
     );
 
-    setupDesktopControls();
-
-    setupMobileControls();
-
-    setupMenus();
-
-    mobileControls.style.display =
-        "none";
+    setupControlBindings();
 
     window.addEventListener(
-        "resize",
+        'resize',
         handleViewportResize
     );
 
     animate();
 }
 
-// ============================================
-// MAP
-// ============================================
+function spawnProxyMonsterMesh() {
 
+    const proxyGeo =
+        new THREE.BoxGeometry(2.0, 4.0, 2.0);
+
+    const proxyMat =
+        new THREE.MeshBasicMaterial({
+            color: 0xff0000
+        });
+
+    horrorEntity =
+        new THREE.Mesh(proxyGeo, proxyMat);
+
+    horrorEntity.position.set(0, 2.0, -30);
+
+    scene.add(horrorEntity);
+}
+
+// --- MAP ---
 function buildSectorMap() {
 
-    const floor =
-        new THREE.Mesh(
+    const floor = new THREE.Mesh(
+        new THREE.PlaneGeometry(120, 120),
 
-            new THREE.PlaneGeometry(
-                120,
-                120
-            ),
-
-            new THREE.MeshStandardMaterial({
-                color:0x423f28
-            })
-        );
+        new THREE.MeshStandardMaterial({
+            color: 0x423f28,
+            roughness: 1.0
+        })
+    );
 
     floor.rotation.x = -Math.PI / 2;
 
     scene.add(floor);
 
-    const wallMat =
+    const ceiling = new THREE.Mesh(
+        new THREE.PlaneGeometry(120, 120),
+
         new THREE.MeshStandardMaterial({
-            color:0x736e43
+            color: 0x4f4f42,
+            roughness: 0.7
+        })
+    );
+
+    ceiling.rotation.x = Math.PI / 2;
+    ceiling.position.y = 5.5;
+
+    scene.add(ceiling);
+
+    const partitionMat =
+        new THREE.MeshStandardMaterial({
+            color: 0x736e43,
+            roughness: 0.9
         });
 
     const blueprint = [
-
         {w:2,d:20,x:-10,z:-15},
         {w:20,d:2,x:0,z:-25},
         {w:2,d:30,x:12,z:-20},
         {w:15,d:2,x:-5,z:-5},
-
+        {w:2,d:15,x:0,z:-40},
+        {w:40,d:2,x:-10,z:-45},
+        {w:16,d:2,x:25,z:-10},
+        {w:2,d:20,x:-25,z:-5},
         {w:100,d:2,x:0,z:50},
         {w:100,d:2,x:0,z:-50},
-
         {w:2,d:100,x:50,z:0},
         {w:2,d:100,x:-50,z:0}
     ];
 
-    blueprint.forEach(def => {
+    blueprint.forEach(wallDef => {
 
-        const wall =
-            new THREE.Mesh(
-
-                new THREE.BoxGeometry(
-                    def.w,
-                    5.5,
-                    def.d
-                ),
-
-                wallMat
-            );
-
-        wall.position.set(
-            def.x,
-            2.75,
-            def.z
+        const wallMesh = new THREE.Mesh(
+            new THREE.BoxGeometry(
+                wallDef.w,
+                5.5,
+                wallDef.d
+            ),
+            partitionMat
         );
 
-        scene.add(wall);
+        wallMesh.position.set(
+            wallDef.x,
+            2.75,
+            wallDef.z
+        );
+
+        scene.add(wallMesh);
 
         wallBoxes.push(
-            new THREE.Box3()
-            .setFromObject(wall)
+            new THREE.Box3().setFromObject(wallMesh)
         );
     });
 }
 
-// ============================================
-// DOOR
-// ============================================
+// --- EXIT DOOR ---
+function buildThresholdDoor(x, y, z) {
 
-function buildThresholdDoor(x,y,z) {
+    escapeDoor = new THREE.Group();
 
-    escapeDoor =
-        new THREE.Mesh(
+    const frameMat =
+        new THREE.MeshStandardMaterial({
+            color: 0x141414,
+            roughness: 0.7
+        });
 
-            new THREE.BoxGeometry(
-                2,
-                3,
-                0.2
-            ),
-
-            new THREE.MeshStandardMaterial({
-                color:0x4a0a0a
-            })
-        );
-
-    escapeDoor.position.set(
-        x,
-        1.5,
-        z
+    const postL = new THREE.Mesh(
+        new THREE.BoxGeometry(0.15, 3.4, 0.25),
+        frameMat
     );
+
+    postL.position.set(-1.1, 1.7, 0);
+
+    const postR = new THREE.Mesh(
+        new THREE.BoxGeometry(0.15, 3.4, 0.25),
+        frameMat
+    );
+
+    postR.position.set(1.1, 1.7, 0);
+
+    escapeDoor.add(postL, postR);
+
+    const doorPanel = new THREE.Mesh(
+        new THREE.BoxGeometry(2.0, 3.3, 0.1),
+
+        new THREE.MeshStandardMaterial({
+            color: 0x4a0a0a,
+            roughness: 0.8
+        })
+    );
+
+    doorPanel.position.set(0, 1.65, 0);
+
+    escapeDoor.add(doorPanel);
+
+    escapeDoor.position.set(x, y, z);
 
     scene.add(escapeDoor);
 }
 
-// ============================================
-// FILES
-// ============================================
-
+// --- FILES ---
 function spawnProceduralEvidenceFiles() {
 
-    const points = [
-
-        {x:32,z:38},
-        {x:-38,z:18},
-        {x:22,z:-32},
-        {x:-42,z:-18},
-        {x:-18,z:-35},
-        {x:5,z:25},
-        {x:18,z:12}
+    const possibleSpawnPoints = [
+        {x: 32, z: 38},
+        {x: -38, z: 18},
+        {x: 22, z: -32},
+        {x: -42, z: -18},
+        {x: -18, z: -35},
+        {x: 5, z: 25},
+        {x: 18, z: 12},
+        {x: -28, z: 42},
+        {x: 40, z: -10}
     ];
 
-    points.forEach(p => {
+    possibleSpawnPoints.sort(() => Math.random() - 0.5);
 
-        const mesh =
-            new THREE.Mesh(
+    for (let i = 0; i < totalFilesRequired; i++) {
 
-                new THREE.BoxGeometry(
-                    0.6,
-                    0.3,
-                    0.7
-                ),
+        const spawnPt = possibleSpawnPoints[i];
 
-                new THREE.MeshStandardMaterial({
-                    color:0xe6dfb8,
-                    emissive:0x221e10
-                })
-            );
+        const folderGroup = new THREE.Group();
 
-        mesh.position.set(
-            p.x,
-            0.15,
-            p.z
+        const backingMesh = new THREE.Mesh(
+            new THREE.BoxGeometry(0.6, 0.3, 0.7),
+
+            new THREE.MeshStandardMaterial({
+                color: 0xe6dfb8,
+                roughness: 0.9,
+                emissive: 0x221e10
+            })
         );
 
-        scene.add(mesh);
+        folderGroup.add(backingMesh);
 
-        evidenceFileMeshes.push(mesh);
-    });
+        folderGroup.position.set(
+            spawnPt.x,
+            0.15,
+            spawnPt.z
+        );
+
+        scene.add(folderGroup);
+
+        evidenceFileMeshes.push(folderGroup);
+    }
 }
-
-// ============================================
-// PICKUP
-// ============================================
 
 function attemptItemPickup() {
 
@@ -476,56 +531,67 @@ function attemptItemPickup() {
         camera
     );
 
-    const hits =
-        crosshairRaycaster.intersectObjects(
-            evidenceFileMeshes
-        );
+    const hits = crosshairRaycaster
+        .intersectObjects(evidenceFileMeshes, true);
 
     if (hits.length > 0) {
 
-        const item = hits[0].object;
+        let struckObject = hits[0].object;
+
+        while (
+            struckObject.parent &&
+            struckObject.parent !== scene
+        ) {
+            struckObject = struckObject.parent;
+        }
 
         if (
             camera.position.distanceTo(
-                item.position
+                struckObject.position
             ) <= 3.5
         ) {
 
-            scene.remove(item);
+            const indexRegistryId =
+                evidenceFileMeshes.indexOf(struckObject);
 
-            evidenceFileMeshes.splice(
-                evidenceFileMeshes.indexOf(item),
-                1
-            );
+            if (indexRegistryId !== -1) {
 
-            collectedFiles++;
+                scene.remove(struckObject);
 
-            filesCountText.innerText =
-                collectedFiles +
-                "/" +
-                totalFilesRequired;
+                evidenceFileMeshes.splice(
+                    indexRegistryId,
+                    1
+                );
 
-            if (
-                collectedFiles >=
-                totalFilesRequired
-            ) {
+                collectedFiles++;
 
-                keyStatusText.innerText =
-                    "UNLOCKED";
+                filesCountText.innerText =
+                    collectedFiles +
+                    "/" +
+                    totalFilesRequired;
+
+                if (
+                    collectedFiles === totalFilesRequired
+                ) {
+
+                    filesCountText.className =
+                        "success-txt";
+
+                    keyStatusText.innerText =
+                        "UNLOCKED";
+
+                    keyStatusText.className =
+                        "success-txt";
+                }
             }
         }
     }
 }
 
-// ============================================
-// JUMP
-// ============================================
-
+// --- JUMP ---
 function executeJumpLeap() {
 
-    if (isJumping) return;
-
-    if (stamina < 22) return;
+    if (isJumping || stamina < 22) return;
 
     isJumping = true;
 
@@ -534,693 +600,350 @@ function executeJumpLeap() {
     verticalVelocity = 11.5;
 }
 
-// ============================================
-// RESET
-// ============================================
+// --- CONTROLS ---
+function setupControlBindings() {
 
-function resetGameEnvironment() {
+    document.addEventListener('mousemove', (e) => {
 
-    camera.position.set(0,1.7,0);
+        if (!gameActive) return;
 
-    camera.rotation.set(0,0,0);
+        camera.rotation.y -=
+            e.movementX * mouseSensitivity;
 
-    collectedFiles = 0;
+        camera.rotation.x -=
+            e.movementY * mouseSensitivity;
 
-    stamina = maxStamina;
-
-    isJumping = false;
-
-    verticalVelocity = 0;
-
-    defaultPlayerHeight = 1.7;
-
-    filesCountText.innerText =
-        "0/" + totalFilesRequired;
-
-    keyStatusText.innerText =
-        "LOCKED";
-
-    evidenceFileMeshes.forEach(mesh => {
-        scene.remove(mesh);
+        camera.rotation.x = Math.max(
+            -Math.PI / 2.2,
+            Math.min(
+                Math.PI / 2.2,
+                camera.rotation.x
+            )
+        );
     });
 
-    evidenceFileMeshes = [];
+    camera.rotation.order = "YXZ";
 
-    spawnProceduralEvidenceFiles();
+    // Mouse Buttons
+    document.addEventListener('mousedown', (e) => {
 
-    if (horrorEntity) {
-        horrorEntity.position.set(
-            0,
-            0,
-            -30
-        );
-    }
-}
+        if (!gameActive) return;
 
-// ============================================
-// START GAME
-// ============================================
-
-function startGameplay() {
-
-    startScreen.style.display =
-        "none";
-
-    settingsScreen.style.display =
-        "none";
-
-    creditsScreen.style.display =
-        "none";
-
-    pauseScreen.style.display =
-        "none";
-
-    gameOverScreen.style.display =
-        "none";
-
-    gameActive = true;
-
-    isPaused = false;
-
-    resetGameEnvironment();
-
-    if (isMobile) {
-
-        mobileControls.style.display =
-            "block";
-
-    } else {
-
-        document.body
-        .requestPointerLock();
-    }
-}
-
-// ============================================
-// MENUS
-// ============================================
-
-function setupMenus() {
-
-    initializeBtn.addEventListener(
-        "click",
-        startGameplay
-    );
-
-    newGameBtn.addEventListener(
-        "click",
-        startGameplay
-    );
-
-    settingsBtn.addEventListener(
-        "click",
-        () => {
-
-            startScreen.style.display =
-                "none";
-
-            settingsScreen.style.display =
-                "flex";
-        }
-    );
-
-    creditsBtn.addEventListener(
-        "click",
-        () => {
-
-            startScreen.style.display =
-                "none";
-
-            creditsScreen.style.display =
-                "flex";
-        }
-    );
-
-    backBtn.addEventListener(
-        "click",
-        () => {
-
-            settingsScreen.style.display =
-                "none";
-
-            startScreen.style.display =
-                "flex";
-        }
-    );
-
-    creditsBackBtn.addEventListener(
-        "click",
-        () => {
-
-            creditsScreen.style.display =
-                "none";
-
-            startScreen.style.display =
-                "flex";
-        }
-    );
-
-    resumeBtn.addEventListener(
-        "click",
-        () => {
-
-            pauseScreen.style.display =
-                "none";
-
-            gameActive = true;
-
-            isPaused = false;
-
-            if (!isMobile) {
-
-                document.body
-                .requestPointerLock();
-            }
-        }
-    );
-
-    pauseQuitBtn.addEventListener(
-        "click",
-        () => {
-
-            gameActive = false;
-
-            isPaused = false;
-
-            pauseScreen.style.display =
-                "none";
-
-            startScreen.style.display =
-                "flex";
-
-            mobileControls.style.display =
-                "none";
-        }
-    );
-
-    pauseSettingsBtn.addEventListener(
-        "click",
-        () => {
-
-            pauseScreen.style.display =
-                "none";
-
-            settingsScreen.style.display =
-                "flex";
-        }
-    );
-
-    document.addEventListener(
-        "keydown",
-        (e) => {
-
-            if (e.code === "Escape") {
-
-                if (
-                    gameActive &&
-                    !isPaused
-                ) {
-
-                    gameActive = false;
-
-                    isPaused = true;
-
-                    pauseScreen.style.display =
-                        "flex";
-
-                    document.exitPointerLock();
-                }
-            }
-        }
-    );
-}
-
-// ============================================
-// DESKTOP CONTROLS
-// ============================================
-
-function setupDesktopControls() {
-
-    document.addEventListener(
-        "mousemove",
-        (e) => {
-
-            if (!gameActive) return;
-
-            camera.rotation.order =
-                "YXZ";
-
-            camera.rotation.y -=
-                e.movementX *
-                mouseSensitivity;
-
-            camera.rotation.x -=
-                e.movementY *
-                mouseSensitivity;
-
-            camera.rotation.x =
-                Math.max(
-                    -Math.PI / 2,
-                    Math.min(
-                        Math.PI / 2,
-                        camera.rotation.x
-                    )
-                );
-        }
-    );
-
-    document.addEventListener(
-        "keydown",
-        (e) => {
-
-            switch(e.code) {
-
-                case "KeyW":
-                    moveForward = true;
-                    break;
-
-                case "KeyS":
-                    moveBackward = true;
-                    break;
-
-                case "KeyA":
-                    moveLeft = true;
-                    break;
-
-                case "KeyD":
-                    moveRight = true;
-                    break;
-
-                case "ShiftLeft":
-                    isSprinting = true;
-                    break;
-
-                case "Space":
-                    executeJumpLeap();
-                    break;
-
-                case "KeyE":
-                    attemptItemPickup();
-                    break;
-            }
-        }
-    );
-
-    document.addEventListener(
-        "keyup",
-        (e) => {
-
-            switch(e.code) {
-
-                case "KeyW":
-                    moveForward = false;
-                    break;
-
-                case "KeyS":
-                    moveBackward = false;
-                    break;
-
-                case "KeyA":
-                    moveLeft = false;
-                    break;
-
-                case "KeyD":
-                    moveRight = false;
-                    break;
-
-                case "ShiftLeft":
-                    isSprinting = false;
-                    break;
-            }
-        }
-    );
-}
-
-// ============================================
-// MOBILE CONTROLS
-// ============================================
-
-function setupMobileControls() {
-
-    if (!isMobile) return;
-
-    let joystickTouchId = null;
-
-    let lookTouchId = null;
-
-    let centerX = 0;
-    let centerY = 0;
-
-    let prevX = 0;
-    let prevY = 0;
-
-    const radius = 40;
-
-    joystickContainer.addEventListener(
-        "touchstart",
-        (e) => {
-
-            const touch =
-                e.changedTouches[0];
-
-            joystickTouchId =
-                touch.identifier;
-
-            const rect =
-                joystickContainer
-                .getBoundingClientRect();
-
-            centerX =
-                rect.left + rect.width / 2;
-
-            centerY =
-                rect.top + rect.height / 2;
-        },
-
-        { passive:false }
-    );
-
-    window.addEventListener(
-        "touchstart",
-        (e) => {
-
-            for (const touch of e.changedTouches) {
-
-                if (
-                    touch.identifier !==
-                    joystickTouchId
-                ) {
-
-                    lookTouchId =
-                        touch.identifier;
-
-                    prevX = touch.clientX;
-                    prevY = touch.clientY;
-                }
-            }
-        },
-
-        { passive:false }
-    );
-
-    window.addEventListener(
-        "touchmove",
-        (e) => {
-
-            for (const touch of e.changedTouches) {
-
-                // JOYSTICK
-
-                if (
-                    touch.identifier ===
-                    joystickTouchId
-                ) {
-
-                    let dx =
-                        touch.clientX -
-                        centerX;
-
-                    let dy =
-                        touch.clientY -
-                        centerY;
-
-                    const dist =
-                        Math.sqrt(
-                            dx*dx + dy*dy
-                        );
-
-                    if (dist > radius) {
-
-                        dx =
-                            (dx / dist) *
-                            radius;
-
-                        dy =
-                            (dy / dist) *
-                            radius;
-                    }
-
-                    joystick.style.transform =
-                        `translate(${dx}px,${dy}px)`;
-
-                    moveForward = dy < -10;
-                    moveBackward = dy > 10;
-
-                    moveLeft = dx < -10;
-                    moveRight = dx > 10;
-                }
-
-                // CAMERA
-
-                if (
-                    touch.identifier ===
-                    lookTouchId
-                ) {
-
-                    const dx =
-                        touch.clientX -
-                        prevX;
-
-                    const dy =
-                        touch.clientY -
-                        prevY;
-
-                    prevX = touch.clientX;
-                    prevY = touch.clientY;
-
-                    camera.rotation.order =
-                        "YXZ";
-
-                    camera.rotation.y -=
-                        dx * 0.003;
-
-                    camera.rotation.x -=
-                        dy * 0.003;
-
-                    camera.rotation.x =
-                        Math.max(
-                            -Math.PI / 2,
-                            Math.min(
-                                Math.PI / 2,
-                                camera.rotation.x
-                            )
-                        );
-                }
-            }
-        },
-
-        { passive:false }
-    );
-
-    window.addEventListener(
-        "touchend",
-        (e) => {
-
-            for (const touch of e.changedTouches) {
-
-                if (
-                    touch.identifier ===
-                    joystickTouchId
-                ) {
-
-                    joystickTouchId =
-                        null;
-
-                    joystick.style.transform =
-                        "translate(0px,0px)";
-
-                    moveForward = false;
-                    moveBackward = false;
-                    moveLeft = false;
-                    moveRight = false;
-                }
-
-                if (
-                    touch.identifier ===
-                    lookTouchId
-                ) {
-
-                    lookTouchId = null;
-                }
-            }
-        }
-    );
-
-    btnSprint.addEventListener(
-        "touchstart",
-        () => {
-            isSprinting = true;
-        }
-    );
-
-    btnSprint.addEventListener(
-        "touchend",
-        () => {
-            isSprinting = false;
-        }
-    );
-
-    btnJump.addEventListener(
-        "touchstart",
-        () => {
-            executeJumpLeap();
-        }
-    );
-
-    btnInteract.addEventListener(
-        "touchstart",
-        () => {
+        // Left Click Pickup
+        if (e.button === 0) {
             attemptItemPickup();
         }
-    );
 
-    btnPause.addEventListener(
-        "touchstart",
-        () => {
-
-            gameActive = false;
-
-            isPaused = true;
-
-            pauseScreen.style.display =
-                "flex";
+        // Right Click Zoom
+        if (e.button === 2) {
+            isZooming = true;
         }
-    );
+    });
+
+    document.addEventListener('mouseup', (e) => {
+
+        // Stop Zoom
+        if (e.button === 2) {
+            isZooming = false;
+        }
+    });
+
+    // Disable Browser Menu
+    document.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+    });
+
+    // Keyboard
+    document.addEventListener('keydown', (e) => {
+
+        switch(e.code) {
+
+            case 'KeyW':
+                moveForward = true;
+                break;
+
+            case 'KeyS':
+                moveBackward = true;
+                break;
+
+            case 'KeyA':
+                moveLeft = true;
+                break;
+
+            case 'KeyD':
+                moveRight = true;
+                break;
+
+            case 'Space':
+                executeJumpLeap();
+                break;
+
+            case 'KeyE':
+                attemptItemPickup();
+                break;
+
+            case 'ShiftLeft':
+            case 'ShiftRight':
+
+                if (!isExhausted) {
+                    isSprinting = true;
+                }
+
+                break;
+        }
+    });
+
+    document.addEventListener('keyup', (e) => {
+
+        switch(e.code) {
+
+            case 'KeyW':
+                moveForward = false;
+                break;
+
+            case 'KeyS':
+                moveBackward = false;
+                break;
+
+            case 'KeyA':
+                moveLeft = false;
+                break;
+
+            case 'KeyD':
+                moveRight = false;
+                break;
+
+            case 'ShiftLeft':
+            case 'ShiftRight':
+                isSprinting = false;
+                break;
+        }
+    });
 }
 
-// ============================================
-// FALLBACK MONSTER
-// ============================================
-
-function spawnProxyMonsterMesh() {
-
-    horrorEntity =
-        new THREE.Mesh(
-
-            new THREE.BoxGeometry(
-                2,
-                4,
-                2
-            ),
-
-            new THREE.MeshBasicMaterial({
-                color:0xff0000
-            })
-        );
-
-    horrorEntity.position.set(
-        0,
-        2,
-        -30
-    );
-
-    scene.add(horrorEntity);
-}
-
-// ============================================
-// GAME OVER
-// ============================================
-
-function triggerAnomalyJumpscare() {
-
-    gameActive = false;
-
-    jumpscareOverlay.style.display =
-        "block";
-
-    setTimeout(() => {
-
-        jumpscareOverlay.style.display =
-            "none";
-
-        gameOverScreen.style.display =
-            "flex";
-
-    }, 1500);
-}
-
-// ============================================
-// ANIMATE
-// ============================================
-
+// --- GAME LOOP ---
 function animate() {
 
     requestAnimationFrame(animate);
 
-    const currentTime =
-        performance.now();
+    const currentTime = performance.now();
 
-    const delta =
+    const frameDelta =
         (currentTime - prevTime) / 1000;
 
     if (animationMixer) {
-
-        animationMixer.update(
-            clock.getDelta()
-        );
+        animationMixer.update(clock.getDelta());
     }
 
+    // --- ZOOM ---
+    const targetFov =
+        isZooming
+        ? zoomedFov
+        : defaultFov;
+
+    camera.fov +=
+        (targetFov - camera.fov)
+        * 6
+        * frameDelta;
+
+    camera.updateProjectionMatrix();
+
+    // Flashlight Zoom Effect
+    const flashlight =
+        camera.children.find(obj => obj.isSpotLight);
+
+    if (flashlight) {
+
+        flashlight.angle += (
+            (
+                isZooming
+                ? Math.PI / 7
+                : Math.PI / 4.5
+            )
+            - flashlight.angle
+        ) * 4 * frameDelta;
+    }
+
+    // GAME
     if (gameActive) {
 
-        const speed =
-            isSprinting ? 11 : 5.8;
+        const userIsMoving =
+            (
+                moveForward ||
+                moveBackward ||
+                moveLeft ||
+                moveRight
+            );
 
-        let forward =
+        // STAMINA
+        if (
+            isSprinting &&
+            userIsMoving &&
+            !isJumping
+        ) {
+
+            stamina -= 18.5 * frameDelta;
+
+            if (stamina <= 0) {
+
+                stamina = 0;
+
+                isSprinting = false;
+
+                isExhausted = true;
+
+                sprintBarFill.classList
+                    .add('exhausted');
+            }
+
+        } else {
+
+            stamina +=
+                (
+                    userIsMoving
+                    ? 7.5
+                    : 14.0
+                )
+                * frameDelta;
+
+            if (stamina > maxStamina) {
+                stamina = maxStamina;
+            }
+
+            if (
+                isExhausted &&
+                stamina >= 30
+            ) {
+
+                isExhausted = false;
+
+                sprintBarFill.classList
+                    .remove('exhausted');
+            }
+        }
+
+        sprintBarFill.style.width =
+            (
+                (stamina / maxStamina)
+                * 100
+            )
+            + "%";
+
+        // MOVEMENT
+        let sprintModifier =
+            isSprinting
+            ? 11.5
+            : 5.8;
+
+        if (isJumping && isSprinting) {
+            sprintModifier = 14.2;
+        }
+
+        let forwardHeading =
             new THREE.Vector3(0,0,-1)
-            .applyQuaternion(
-                camera.quaternion
-            );
+                .applyQuaternion(camera.quaternion);
 
-        let right =
+        let sideHeading =
             new THREE.Vector3(1,0,0)
-            .applyQuaternion(
-                camera.quaternion
-            );
+                .applyQuaternion(camera.quaternion);
 
-        forward.y = 0;
-        right.y = 0;
+        forwardHeading.y = 0;
+        sideHeading.y = 0;
 
-        forward.normalize();
-        right.normalize();
+        forwardHeading.normalize();
+        sideHeading.normalize();
 
-        const move =
+        let displacement =
             new THREE.Vector3();
 
-        if (moveForward)
-            move.addScaledVector(
-                forward,
-                speed * delta
+        if (moveForward) {
+            displacement.addScaledVector(
+                forwardHeading,
+                sprintModifier * frameDelta
             );
+        }
 
-        if (moveBackward)
-            move.addScaledVector(
-                forward,
-                -speed * delta
+        if (moveBackward) {
+            displacement.addScaledVector(
+                forwardHeading,
+                -sprintModifier * frameDelta
             );
+        }
 
-        if (moveLeft)
-            move.addScaledVector(
-                right,
-                -speed * delta
+        if (moveRight) {
+            displacement.addScaledVector(
+                sideHeading,
+                sprintModifier * frameDelta
             );
+        }
 
-        if (moveRight)
-            move.addScaledVector(
-                right,
-                speed * delta
+        if (moveLeft) {
+            displacement.addScaledVector(
+                sideHeading,
+                -sprintModifier * frameDelta
             );
+        }
 
-        camera.position.add(move);
+        // COLLISION X
+        let currentX = camera.position.x;
+
+        camera.position.x += displacement.x;
+
+        for (let i = 0; i < wallBoxes.length; i++) {
+
+            if (
+                wallBoxes[i].containsPoint(
+                    new THREE.Vector3(
+                        camera.position.x +
+                        Math.sign(displacement.x)
+                        * playerRadius,
+
+                        camera.position.y,
+
+                        camera.position.z
+                    )
+                )
+            ) {
+
+                camera.position.x = currentX;
+                break;
+            }
+        }
+
+        // COLLISION Z
+        let currentZ = camera.position.z;
+
+        camera.position.z += displacement.z;
+
+        for (let i = 0; i < wallBoxes.length; i++) {
+
+            if (
+                wallBoxes[i].containsPoint(
+                    new THREE.Vector3(
+                        camera.position.x,
+
+                        camera.position.y,
+
+                        camera.position.z +
+                        Math.sign(displacement.z)
+                        * playerRadius
+                    )
+                )
+            ) {
+
+                camera.position.z = currentZ;
+                break;
+            }
+        }
 
         // JUMP
-
         if (isJumping) {
 
             verticalVelocity -=
-                gravityConstant * delta;
+                gravityConstant * frameDelta;
 
             defaultPlayerHeight +=
-                verticalVelocity * delta;
+                verticalVelocity * frameDelta;
 
             if (defaultPlayerHeight <= 1.7) {
 
@@ -1233,54 +956,27 @@ function animate() {
         }
 
         camera.position.y =
-            defaultPlayerHeight;
-
-        // FILE ROTATION
-
-        evidenceFileMeshes.forEach(mesh => {
-
-            mesh.rotation.y +=
-                1.5 * delta;
-        });
-
-        // DOOR
-
-        if (
-            escapeDoor &&
-            collectedFiles >=
-            totalFilesRequired &&
-            camera.position.distanceTo(
-                escapeDoor.position
-            ) < 2
-        ) {
-
-            alert("CASE FILE RESOLVED");
-
-            gameActive = false;
-        }
-
-        // MONSTER
-
-        if (horrorEntity) {
-
-            horrorEntity.lookAt(
-                camera.position
-            );
-
-            horrorEntity.translateZ(
-                2 * delta
-            );
-
-            const dist =
-                horrorEntity.position.distanceTo(
-                    camera.position
-                );
-
-            if (dist < 3) {
-
-                triggerAnomalyJumpscare();
-            }
-        }
+            (
+                !isJumping &&
+                userIsMoving
+            )
+            ? (
+                defaultPlayerHeight +
+                Math.sin(
+                    currentTime *
+                    (
+                        isSprinting
+                        ? 0.013
+                        : 0.008
+                    )
+                )
+                * (
+                    isSprinting
+                    ? 0.065
+                    : 0.03
+                )
+            )
+            : defaultPlayerHeight;
     }
 
     prevTime = currentTime;
@@ -1288,10 +984,7 @@ function animate() {
     renderer.render(scene, camera);
 }
 
-// ============================================
-// RESIZE
-// ============================================
-
+// --- VIEWPORT ---
 function handleViewportResize() {
 
     camera.aspect =
@@ -1306,8 +999,5 @@ function handleViewportResize() {
     );
 }
 
-// ============================================
 // START
-// ============================================
-
 window.onload = init;
