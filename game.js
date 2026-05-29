@@ -6,7 +6,7 @@ const clock = new THREE.Clock();
 
 let horrorEntity = null;
 let gameActive = false;
-let isPaused = false; 
+let isPaused = false;
 let escapeDoor = null;
 
 // --- Camera Zoom System ---
@@ -15,127 +15,180 @@ const defaultFov = 65;
 const zoomedFov = 35;
 let isZooming = false;
 
-// Audio Stream Context Architecture
+// --- Monster Upgrade System ---
+let monsterBaseSpeed = 2.8;
+let monsterScaleMultiplier = 11;
+
+// --- Audio Stream Context Architecture ---
 let audioCtx = null;
 let monsterTrackBuffer = null;
 let monsterAudioSource = null;
 let monsterGainNode = null;
 let breathingInterval = null;
 
-// Document Objective Tracking Mechanics
+// --- Jumpscare Audio ---
+let jumpscareBuffer = null;
+let jumpscareSource = null;
+
+// --- Document Objective Tracking Mechanics ---
 let collectedFiles = 0;
-const totalFilesRequired = 7; 
+const totalFilesRequired = 7;
 let evidenceFileMeshes = [];
 
-// Stamina Physical Properties & States
+// --- Stamina Physical Properties & States ---
 let stamina = 100;
 const maxStamina = 100;
 let isSprinting = false;
-let isExhausted = false; 
+let isExhausted = false;
 
-// Jump state mechanics
+// --- Jump State Mechanics ---
 let isJumping = false;
 let verticalVelocity = 0;
-const gravityConstant = 32.0; 
+const gravityConstant = 32.0;
 let defaultPlayerHeight = 1.7;
 
-// Raycast Vector Math Engine
+// --- Raycast Vector Math Engine ---
 const crosshairRaycaster = new THREE.Raycaster();
 const screenCenterVector = new THREE.Vector2(0, 0);
 
-// Collision Geometry Boundaries
+// --- Collision Geometry Boundaries ---
 let wallBoxes = [];
 const playerRadius = 0.45;
 
-// Dom Element Target Map Pointers
+// --- DOM References ---
 const startScreen = document.getElementById('start-screen');
 const gameOverScreen = document.getElementById('game-over-screen');
 const initializeBtn = document.getElementById('initialize-btn');
-const retryBtn = document.getElementById('retry-btn');
 const jumpscareOverlay = document.getElementById('jumpscare-overlay');
 const filesCountText = document.getElementById('files-count');
 const keyStatusText = document.getElementById('key-status');
 const sprintBarFill = document.getElementById('sprint-bar-fill');
 const pauseScreen = document.getElementById('pause-screen');
-const resumeBtn = document.getElementById('resume-btn');
-const pauseSettingsBtn = document.getElementById('pause-settings-btn');
-const pauseQuitBtn = document.getElementById('pause-quit-btn');
-const cutsceneScreen = document.getElementById('cutscene-screen');
-const cutsceneVideo = document.getElementById('cutscene-video');
-const skipCutsceneBtn = document.getElementById('skip-cutscene-btn');
-const horrorQuoteText = document.getElementById('horror-quote');
-const getUpText = document.getElementById('get-up-text');
 
-let hasStartedGame = false;
 let mouseSensitivity = 0.0022;
 
-// Dread Quotes Bank Array
-const horrorQuotes = [
-    "This is not over...",
-    "Sen. Bato is getting away again, do it and collect some evidence.",
-    "The tape cannot be stopped.",
-    "You are running out of warehouse rooms.",
-    "It watches through the lens.",
-    "You are bound to the tracking cycle."
-];
-
-// --- Event Handlers & Interface Directives ---
+// --- Start Game ---
 initializeBtn.addEventListener('click', () => {
+
     startScreen.style.display = 'none';
+
     initAudioEngine();
+
     startBreathingEngine();
-    hasStartedGame = true;
+
     document.body.requestPointerLock();
+
     gameActive = true;
 });
 
-// --- Pointer Lock Handler Handshaking ---
+// --- Pointer Lock ---
 document.addEventListener('pointerlockchange', () => {
-    if (gameOverScreen.style.display === 'flex' || jumpscareOverlay.style.display === 'block') {
-        return; 
+
+    if (
+        gameOverScreen.style.display === 'flex' ||
+        jumpscareOverlay.style.display === 'block'
+    ) {
+        return;
     }
 
-    gameActive = (document.pointerLockElement === document.body);
+    gameActive =
+        (document.pointerLockElement === document.body);
 
     if (!gameActive && !isPaused) {
+
         startScreen.style.display = 'flex';
 
         if (monsterGainNode && audioCtx) {
-            monsterGainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+
+            monsterGainNode.gain.setValueAtTime(
+                0,
+                audioCtx.currentTime
+            );
         }
     }
 });
 
-// --- Audio Generation Pipelines ---
+// --- Audio Engine ---
 function initAudioEngine() {
+
     if (audioCtx) {
-        if (audioCtx.state === 'suspended') audioCtx.resume();
+
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+
         return;
     }
 
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    audioCtx =
+        new (
+            window.AudioContext ||
+            window.webkitAudioContext
+        )();
 
-    monsterGainNode = audioCtx.createGain();
-    monsterGainNode.gain.setValueAtTime(0, audioCtx.currentTime);
-    monsterGainNode.connect(audioCtx.destination);
+    monsterGainNode =
+        audioCtx.createGain();
 
+    monsterGainNode.gain.setValueAtTime(
+        0,
+        audioCtx.currentTime
+    );
+
+    monsterGainNode.connect(
+        audioCtx.destination
+    );
+
+    // Monster Ambient
     fetch('./monster_ambient.mp3')
+
         .then(response => {
-            if (!response.ok) throw new Error();
+
+            if (!response.ok) {
+                throw new Error();
+            }
+
             return response.arrayBuffer();
         })
-        .then(data => audioCtx.decodeAudioData(data))
+
+        .then(data =>
+            audioCtx.decodeAudioData(data)
+        )
+
         .then(buffer => {
+
             monsterTrackBuffer = buffer;
+
             startMonsterAmbientLoop();
+        });
+
+    // Jumpscare Audio
+    fetch('./jumpscare.mp3')
+
+        .then(response => {
+
+            if (!response.ok) {
+                throw new Error();
+            }
+
+            return response.arrayBuffer();
         })
-        .catch(err => console.error("Audio failed:", err));
+
+        .then(data =>
+            audioCtx.decodeAudioData(data)
+        )
+
+        .then(buffer => {
+
+            jumpscareBuffer = buffer;
+        });
 }
 
 function startMonsterAmbientLoop() {
+
     if (!audioCtx || !monsterTrackBuffer) return;
 
     if (monsterAudioSource) {
+
         try {
             monsterAudioSource.stop();
         } catch(e) {}
@@ -143,55 +196,101 @@ function startMonsterAmbientLoop() {
         monsterAudioSource.disconnect();
     }
 
-    monsterAudioSource = audioCtx.createBufferSource();
-    monsterAudioSource.buffer = monsterTrackBuffer;
+    monsterAudioSource =
+        audioCtx.createBufferSource();
+
+    monsterAudioSource.buffer =
+        monsterTrackBuffer;
+
     monsterAudioSource.loop = true;
-    monsterAudioSource.connect(monsterGainNode);
+
+    monsterAudioSource.connect(
+        monsterGainNode
+    );
+
     monsterAudioSource.start(0);
 }
 
+// --- Breathing System ---
 function startBreathingEngine() {
-    if (breathingInterval) clearInterval(breathingInterval);
+
+    if (breathingInterval) {
+        clearInterval(breathingInterval);
+    }
 
     breathingInterval = setInterval(() => {
+
         if (!gameActive) return;
 
         let panicIntensity =
-            (stamina < 35)
+            (
+                stamina < 35
+            )
             ? 0.15
-            : (isSprinting && (moveForward || moveBackward || moveLeft || moveRight)
+            : (
+                isSprinting
                 ? 0.06
-                : 0.01);
+                : 0.01
+            );
 
         if (stamina < 75 || isSprinting) {
-            playProceduralBreathSigh(panicIntensity);
+            playProceduralBreathSigh(
+                panicIntensity
+            );
         }
+
     }, 1200);
 }
 
 function playProceduralBreathSigh(volume) {
-    if (!audioCtx || audioCtx.state === 'suspended') return;
 
-    const bufferSize = audioCtx.sampleRate * 0.4;
-    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-    const data = buffer.getChannelData(0);
+    if (
+        !audioCtx ||
+        audioCtx.state === 'suspended'
+    ) {
+        return;
+    }
+
+    const bufferSize =
+        audioCtx.sampleRate * 0.4;
+
+    const buffer =
+        audioCtx.createBuffer(
+            1,
+            bufferSize,
+            audioCtx.sampleRate
+        );
+
+    const data =
+        buffer.getChannelData(0);
 
     for (let i = 0; i < bufferSize; i++) {
         data[i] = Math.random() * 2 - 1;
     }
 
-    const noiseNode = audioCtx.createBufferSource();
+    const noiseNode =
+        audioCtx.createBufferSource();
+
     noiseNode.buffer = buffer;
 
-    const filterNode = audioCtx.createBiquadFilter();
+    const filterNode =
+        audioCtx.createBiquadFilter();
+
     filterNode.type = 'lowpass';
+
     filterNode.frequency.setValueAtTime(
         stamina < 35 ? 450 : 300,
         audioCtx.currentTime
     );
 
-    const gainNode = audioCtx.createGain();
-    gainNode.gain.setValueAtTime(volume, audioCtx.currentTime);
+    const gainNode =
+        audioCtx.createGain();
+
+    gainNode.gain.setValueAtTime(
+        volume,
+        audioCtx.currentTime
+    );
+
     gainNode.gain.exponentialRampToValueAtTime(
         0.001,
         audioCtx.currentTime + 0.35
@@ -204,94 +303,134 @@ function playProceduralBreathSigh(volume) {
     noiseNode.start();
 }
 
-// --- Engine Init Bootup Sequencing ---
+// --- Engine Init ---
 function init() {
 
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x12120b);
-    scene.fog = new THREE.FogExp2(0x12120b, 0.14);
 
-    // CAMERA
-    camera = new THREE.PerspectiveCamera(
-        cameraFov,
-        window.innerWidth / window.innerHeight,
-        0.1,
-        1000
+    scene.background =
+        new THREE.Color(0x12120b);
+
+    scene.fog =
+        new THREE.FogExp2(
+            0x12120b,
+            0.14
+        );
+
+    // Camera
+    camera =
+        new THREE.PerspectiveCamera(
+            cameraFov,
+            window.innerWidth / window.innerHeight,
+            0.1,
+            1000
+        );
+
+    camera.position.set(
+        0,
+        defaultPlayerHeight,
+        0
     );
 
-    camera.position.set(0, defaultPlayerHeight, 0);
+    // Renderer
+    renderer =
+        new THREE.WebGLRenderer({
+            antialias: false,
+            powerPreference: "high-performance"
+        });
 
-    // RENDERER
-    renderer = new THREE.WebGLRenderer({
-        antialias: false
-    });
+    renderer.setSize(
+        window.innerWidth,
+        window.innerHeight
+    );
 
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.2));
-    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.setPixelRatio(
+        Math.min(window.devicePixelRatio, 1.2)
+    );
 
-    document.getElementById('canvas-container')
+    renderer.outputEncoding =
+        THREE.sRGBEncoding;
+
+    document
+        .getElementById('canvas-container')
         .appendChild(renderer.domElement);
 
-    // LIGHTING
-    const ambientFloorLight = new THREE.AmbientLight(
-        0xffffff,
-        0.6
-    );
+    // Lights
+    const ambientFloorLight =
+        new THREE.AmbientLight(
+            0xffffff,
+            0.6
+        );
 
     scene.add(ambientFloorLight);
 
-    const directionalSun = new THREE.DirectionalLight(
-        0xffffff,
-        0.5
-    );
+    const directionalSun =
+        new THREE.DirectionalLight(
+            0xffffff,
+            0.5
+        );
 
-    directionalSun.position.set(5, 15, 5);
+    directionalSun.position.set(5,15,5);
+
     scene.add(directionalSun);
 
-    // FLASHLIGHT
-    const flashlightNode = new THREE.SpotLight(
-        0xfff5d1,
-        8,
-        24,
-        Math.PI / 4.5,
-        0.5,
-        1.3
-    );
-
-    flashlightNode.position.set(0, 0, 0);
+    // Flashlight
+    const flashlightNode =
+        new THREE.SpotLight(
+            0xfff5d1,
+            8,
+            24,
+            Math.PI / 4.5,
+            0.5,
+            1.3
+        );
 
     camera.add(flashlightNode);
 
-    flashlightNode.target = new THREE.Object3D();
+    flashlightNode.target =
+        new THREE.Object3D();
 
     camera.add(flashlightNode.target);
 
-    flashlightNode.target.position.set(0, 0, -1);
+    flashlightNode.target.position.set(
+        0,
+        0,
+        -1
+    );
 
     scene.add(camera);
 
-    // MAP
+    // World
     buildSectorMap();
 
-    // EXIT
-    buildThresholdDoor(-8, 0, -38);
+    buildThresholdDoor(-8,0,-38);
 
-    // FILES
     spawnProceduralEvidenceFiles();
 
-    // LOADER
-    gltfLoader = new THREE.GLTFLoader();
+    // Monster
+    gltfLoader =
+        new THREE.GLTFLoader();
 
     gltfLoader.load(
+
         './monster.glb',
 
         (gltf) => {
 
             horrorEntity = gltf.scene;
 
-            horrorEntity.position.set(0, 0, -30);
-            horrorEntity.scale.set(7.5, 7.5, 7.5);
+            horrorEntity.position.set(
+                0,
+                0,
+                -30
+            );
+
+            // BIGGER MONSTER
+            horrorEntity.scale.set(
+                monsterScaleMultiplier,
+                monsterScaleMultiplier,
+                monsterScaleMultiplier
+            );
 
             horrorEntity.traverse((child) => {
 
@@ -300,29 +439,31 @@ function init() {
                     child.material.needsUpdate = true;
 
                     if (child.material.map) {
+
                         child.material.map.encoding =
                             THREE.sRGBEncoding;
                     }
                 }
             });
 
-            if (gltf.animations && gltf.animations.length > 0) {
+            if (
+                gltf.animations &&
+                gltf.animations.length > 0
+            ) {
 
                 animationMixer =
-                    new THREE.AnimationMixer(horrorEntity);
+                    new THREE.AnimationMixer(
+                        horrorEntity
+                    );
 
                 animationMixer
-                    .clipAction(gltf.animations[0])
+                    .clipAction(
+                        gltf.animations[0]
+                    )
                     .play();
             }
 
             scene.add(horrorEntity);
-        },
-
-        null,
-
-        () => {
-            spawnProxyMonsterMesh();
         }
     );
 
@@ -336,271 +477,7 @@ function init() {
     animate();
 }
 
-function spawnProxyMonsterMesh() {
-
-    const proxyGeo =
-        new THREE.BoxGeometry(2.0, 4.0, 2.0);
-
-    const proxyMat =
-        new THREE.MeshBasicMaterial({
-            color: 0xff0000
-        });
-
-    horrorEntity =
-        new THREE.Mesh(proxyGeo, proxyMat);
-
-    horrorEntity.position.set(0, 2.0, -30);
-
-    scene.add(horrorEntity);
-}
-
-// --- MAP ---
-function buildSectorMap() {
-
-    const floor = new THREE.Mesh(
-        new THREE.PlaneGeometry(120, 120),
-
-        new THREE.MeshStandardMaterial({
-            color: 0x423f28,
-            roughness: 1.0
-        })
-    );
-
-    floor.rotation.x = -Math.PI / 2;
-
-    scene.add(floor);
-
-    const ceiling = new THREE.Mesh(
-        new THREE.PlaneGeometry(120, 120),
-
-        new THREE.MeshStandardMaterial({
-            color: 0x4f4f42,
-            roughness: 0.7
-        })
-    );
-
-    ceiling.rotation.x = Math.PI / 2;
-    ceiling.position.y = 5.5;
-
-    scene.add(ceiling);
-
-    const partitionMat =
-        new THREE.MeshStandardMaterial({
-            color: 0x736e43,
-            roughness: 0.9
-        });
-
-    const blueprint = [
-        {w:2,d:20,x:-10,z:-15},
-        {w:20,d:2,x:0,z:-25},
-        {w:2,d:30,x:12,z:-20},
-        {w:15,d:2,x:-5,z:-5},
-        {w:2,d:15,x:0,z:-40},
-        {w:40,d:2,x:-10,z:-45},
-        {w:16,d:2,x:25,z:-10},
-        {w:2,d:20,x:-25,z:-5},
-        {w:100,d:2,x:0,z:50},
-        {w:100,d:2,x:0,z:-50},
-        {w:2,d:100,x:50,z:0},
-        {w:2,d:100,x:-50,z:0}
-    ];
-
-    blueprint.forEach(wallDef => {
-
-        const wallMesh = new THREE.Mesh(
-            new THREE.BoxGeometry(
-                wallDef.w,
-                5.5,
-                wallDef.d
-            ),
-            partitionMat
-        );
-
-        wallMesh.position.set(
-            wallDef.x,
-            2.75,
-            wallDef.z
-        );
-
-        scene.add(wallMesh);
-
-        wallBoxes.push(
-            new THREE.Box3().setFromObject(wallMesh)
-        );
-    });
-}
-
-// --- EXIT DOOR ---
-function buildThresholdDoor(x, y, z) {
-
-    escapeDoor = new THREE.Group();
-
-    const frameMat =
-        new THREE.MeshStandardMaterial({
-            color: 0x141414,
-            roughness: 0.7
-        });
-
-    const postL = new THREE.Mesh(
-        new THREE.BoxGeometry(0.15, 3.4, 0.25),
-        frameMat
-    );
-
-    postL.position.set(-1.1, 1.7, 0);
-
-    const postR = new THREE.Mesh(
-        new THREE.BoxGeometry(0.15, 3.4, 0.25),
-        frameMat
-    );
-
-    postR.position.set(1.1, 1.7, 0);
-
-    escapeDoor.add(postL, postR);
-
-    const doorPanel = new THREE.Mesh(
-        new THREE.BoxGeometry(2.0, 3.3, 0.1),
-
-        new THREE.MeshStandardMaterial({
-            color: 0x4a0a0a,
-            roughness: 0.8
-        })
-    );
-
-    doorPanel.position.set(0, 1.65, 0);
-
-    escapeDoor.add(doorPanel);
-
-    escapeDoor.position.set(x, y, z);
-
-    scene.add(escapeDoor);
-}
-
-// --- FILES ---
-function spawnProceduralEvidenceFiles() {
-
-    const possibleSpawnPoints = [
-        {x: 32, z: 38},
-        {x: -38, z: 18},
-        {x: 22, z: -32},
-        {x: -42, z: -18},
-        {x: -18, z: -35},
-        {x: 5, z: 25},
-        {x: 18, z: 12},
-        {x: -28, z: 42},
-        {x: 40, z: -10}
-    ];
-
-    possibleSpawnPoints.sort(() => Math.random() - 0.5);
-
-    for (let i = 0; i < totalFilesRequired; i++) {
-
-        const spawnPt = possibleSpawnPoints[i];
-
-        const folderGroup = new THREE.Group();
-
-        const backingMesh = new THREE.Mesh(
-            new THREE.BoxGeometry(0.6, 0.3, 0.7),
-
-            new THREE.MeshStandardMaterial({
-                color: 0xe6dfb8,
-                roughness: 0.9,
-                emissive: 0x221e10
-            })
-        );
-
-        folderGroup.add(backingMesh);
-
-        folderGroup.position.set(
-            spawnPt.x,
-            0.15,
-            spawnPt.z
-        );
-
-        scene.add(folderGroup);
-
-        evidenceFileMeshes.push(folderGroup);
-    }
-}
-
-function attemptItemPickup() {
-
-    if (!gameActive) return;
-
-    crosshairRaycaster.setFromCamera(
-        screenCenterVector,
-        camera
-    );
-
-    const hits = crosshairRaycaster
-        .intersectObjects(evidenceFileMeshes, true);
-
-    if (hits.length > 0) {
-
-        let struckObject = hits[0].object;
-
-        while (
-            struckObject.parent &&
-            struckObject.parent !== scene
-        ) {
-            struckObject = struckObject.parent;
-        }
-
-        if (
-            camera.position.distanceTo(
-                struckObject.position
-            ) <= 3.5
-        ) {
-
-            const indexRegistryId =
-                evidenceFileMeshes.indexOf(struckObject);
-
-            if (indexRegistryId !== -1) {
-
-                scene.remove(struckObject);
-
-                evidenceFileMeshes.splice(
-                    indexRegistryId,
-                    1
-                );
-
-                collectedFiles++;
-
-                filesCountText.innerText =
-                    collectedFiles +
-                    "/" +
-                    totalFilesRequired;
-
-                if (
-                    collectedFiles === totalFilesRequired
-                ) {
-
-                    filesCountText.className =
-                        "success-txt";
-
-                    keyStatusText.innerText =
-                        "UNLOCKED";
-
-                    keyStatusText.className =
-                        "success-txt";
-                }
-            }
-        }
-    }
-}
-
-// --- JUMP ---
-function executeJumpLeap() {
-
-    if (isJumping || stamina < 22) return;
-
-    isJumping = true;
-
-    stamina -= 22;
-
-    verticalVelocity = 11.5;
-}
-
-// --- CONTROLS ---
+// --- Controls ---
 function setupControlBindings() {
 
     document.addEventListener('mousemove', (e) => {
@@ -624,17 +501,17 @@ function setupControlBindings() {
 
     camera.rotation.order = "YXZ";
 
-    // Mouse Buttons
+    // Mouse
     document.addEventListener('mousedown', (e) => {
 
         if (!gameActive) return;
 
-        // Left Click Pickup
+        // Left click pickup
         if (e.button === 0) {
             attemptItemPickup();
         }
 
-        // Right Click Zoom
+        // Right click zoom
         if (e.button === 2) {
             isZooming = true;
         }
@@ -642,13 +519,11 @@ function setupControlBindings() {
 
     document.addEventListener('mouseup', (e) => {
 
-        // Stop Zoom
         if (e.button === 2) {
             isZooming = false;
         }
     });
 
-    // Disable Browser Menu
     document.addEventListener('contextmenu', (e) => {
         e.preventDefault();
     });
@@ -672,14 +547,6 @@ function setupControlBindings() {
 
             case 'KeyD':
                 moveRight = true;
-                break;
-
-            case 'Space':
-                executeJumpLeap();
-                break;
-
-            case 'KeyE':
-                attemptItemPickup();
                 break;
 
             case 'ShiftLeft':
@@ -721,7 +588,7 @@ function setupControlBindings() {
     });
 }
 
-// --- GAME LOOP ---
+// --- Animate ---
 function animate() {
 
     requestAnimationFrame(animate);
@@ -732,10 +599,12 @@ function animate() {
         (currentTime - prevTime) / 1000;
 
     if (animationMixer) {
-        animationMixer.update(clock.getDelta());
+        animationMixer.update(
+            clock.getDelta()
+        );
     }
 
-    // --- ZOOM ---
+    // Zoom
     const targetFov =
         isZooming
         ? zoomedFov
@@ -748,235 +617,99 @@ function animate() {
 
     camera.updateProjectionMatrix();
 
-    // Flashlight Zoom Effect
-    const flashlight =
-        camera.children.find(obj => obj.isSpotLight);
-
-    if (flashlight) {
-
-        flashlight.angle += (
-            (
-                isZooming
-                ? Math.PI / 7
-                : Math.PI / 4.5
-            )
-            - flashlight.angle
-        ) * 4 * frameDelta;
-    }
-
-    // GAME
+    // Game
     if (gameActive) {
 
-        const userIsMoving =
-            (
-                moveForward ||
-                moveBackward ||
-                moveLeft ||
-                moveRight
+        // Monster
+        if (horrorEntity) {
+
+            let distanceToTarget =
+                horrorEntity.position.distanceTo(
+                    camera.position
+                );
+
+            horrorEntity.lookAt(
+                new THREE.Vector3(
+                    camera.position.x,
+                    horrorEntity.position.y,
+                    camera.position.z
+                )
             );
 
-        // STAMINA
-        if (
-            isSprinting &&
-            userIsMoving &&
-            !isJumping
-        ) {
+            // Dynamic Monster Speed
+            let monsterSpeed =
+                monsterBaseSpeed +
+                (collectedFiles * 0.9);
 
-            stamina -= 18.5 * frameDelta;
-
-            if (stamina <= 0) {
-
-                stamina = 0;
-
-                isSprinting = false;
-
-                isExhausted = true;
-
-                sprintBarFill.classList
-                    .add('exhausted');
+            if (isSprinting) {
+                monsterSpeed += 1.8;
             }
 
-        } else {
-
-            stamina +=
-                (
-                    userIsMoving
-                    ? 7.5
-                    : 14.0
-                )
-                * frameDelta;
-
-            if (stamina > maxStamina) {
-                stamina = maxStamina;
+            if (stamina < 30) {
+                monsterSpeed += 1.2;
             }
 
+            if (isZooming) {
+                monsterSpeed += 0.6;
+            }
+
+            horrorEntity.translateZ(
+                monsterSpeed * frameDelta
+            );
+
+            // Dynamic Monster Growth
+            let growth =
+                11 +
+                (collectedFiles * 0.45);
+
+            horrorEntity.scale.set(
+                growth,
+                growth,
+                growth
+            );
+
+            // Camera Distortion
+            if (distanceToTarget < 10) {
+
+                camera.rotation.z =
+                    Math.sin(currentTime * 0.02)
+                    * 0.01
+                    * (10 - distanceToTarget);
+
+            } else {
+
+                camera.rotation.z = 0;
+            }
+
+            // Audio Distance
             if (
-                isExhausted &&
-                stamina >= 30
+                monsterGainNode &&
+                audioCtx &&
+                audioCtx.state !== 'suspended'
             ) {
 
-                isExhausted = false;
-
-                sprintBarFill.classList
-                    .remove('exhausted');
-            }
-        }
-
-        sprintBarFill.style.width =
-            (
-                (stamina / maxStamina)
-                * 100
-            )
-            + "%";
-
-        // MOVEMENT
-        let sprintModifier =
-            isSprinting
-            ? 11.5
-            : 5.8;
-
-        if (isJumping && isSprinting) {
-            sprintModifier = 14.2;
-        }
-
-        let forwardHeading =
-            new THREE.Vector3(0,0,-1)
-                .applyQuaternion(camera.quaternion);
-
-        let sideHeading =
-            new THREE.Vector3(1,0,0)
-                .applyQuaternion(camera.quaternion);
-
-        forwardHeading.y = 0;
-        sideHeading.y = 0;
-
-        forwardHeading.normalize();
-        sideHeading.normalize();
-
-        let displacement =
-            new THREE.Vector3();
-
-        if (moveForward) {
-            displacement.addScaledVector(
-                forwardHeading,
-                sprintModifier * frameDelta
-            );
-        }
-
-        if (moveBackward) {
-            displacement.addScaledVector(
-                forwardHeading,
-                -sprintModifier * frameDelta
-            );
-        }
-
-        if (moveRight) {
-            displacement.addScaledVector(
-                sideHeading,
-                sprintModifier * frameDelta
-            );
-        }
-
-        if (moveLeft) {
-            displacement.addScaledVector(
-                sideHeading,
-                -sprintModifier * frameDelta
-            );
-        }
-
-        // COLLISION X
-        let currentX = camera.position.x;
-
-        camera.position.x += displacement.x;
-
-        for (let i = 0; i < wallBoxes.length; i++) {
-
-            if (
-                wallBoxes[i].containsPoint(
-                    new THREE.Vector3(
-                        camera.position.x +
-                        Math.sign(displacement.x)
-                        * playerRadius,
-
-                        camera.position.y,
-
-                        camera.position.z
-                    )
-                )
-            ) {
-
-                camera.position.x = currentX;
-                break;
-            }
-        }
-
-        // COLLISION Z
-        let currentZ = camera.position.z;
-
-        camera.position.z += displacement.z;
-
-        for (let i = 0; i < wallBoxes.length; i++) {
-
-            if (
-                wallBoxes[i].containsPoint(
-                    new THREE.Vector3(
-                        camera.position.x,
-
-                        camera.position.y,
-
-                        camera.position.z +
-                        Math.sign(displacement.z)
-                        * playerRadius
-                    )
-                )
-            ) {
-
-                camera.position.z = currentZ;
-                break;
-            }
-        }
-
-        // JUMP
-        if (isJumping) {
-
-            verticalVelocity -=
-                gravityConstant * frameDelta;
-
-            defaultPlayerHeight +=
-                verticalVelocity * frameDelta;
-
-            if (defaultPlayerHeight <= 1.7) {
-
-                defaultPlayerHeight = 1.7;
-
-                verticalVelocity = 0;
-
-                isJumping = false;
-            }
-        }
-
-        camera.position.y =
-            (
-                !isJumping &&
-                userIsMoving
-            )
-            ? (
-                defaultPlayerHeight +
-                Math.sin(
-                    currentTime *
+                let targetVolume =
                     (
-                        isSprinting
-                        ? 0.013
-                        : 0.008
+                        distanceToTarget < 28
                     )
-                )
-                * (
-                    isSprinting
-                    ? 0.065
-                    : 0.03
-                )
-            )
-            : defaultPlayerHeight;
+                    ? Math.pow(
+                        1 - (distanceToTarget / 28),
+                        2
+                    ) * 0.85
+                    : 0;
+
+                monsterGainNode.gain
+                    .linearRampToValueAtTime(
+                        targetVolume,
+                        audioCtx.currentTime + 0.1
+                    );
+            }
+
+            // Jumpscare Trigger
+            if (distanceToTarget < 3.4) {
+                triggerAnomalyJumpscare();
+            }
+        }
     }
 
     prevTime = currentTime;
@@ -984,7 +717,80 @@ function animate() {
     renderer.render(scene, camera);
 }
 
-// --- VIEWPORT ---
+// --- Jumpscare ---
+function triggerAnomalyJumpscare() {
+
+    gameActive = false;
+
+    document.exitPointerLock();
+
+    // STOP AMBIENT
+    if (monsterGainNode && audioCtx) {
+
+        monsterGainNode.gain.setValueAtTime(
+            0,
+            audioCtx.currentTime
+        );
+    }
+
+    // PLAY JUMPSCARE AUDIO
+    if (audioCtx && jumpscareBuffer) {
+
+        jumpscareSource =
+            audioCtx.createBufferSource();
+
+        jumpscareSource.buffer =
+            jumpscareBuffer;
+
+        jumpscareSource.connect(
+            audioCtx.destination
+        );
+
+        jumpscareSource.start(0);
+    }
+
+    // SHOW OVERLAY
+    jumpscareOverlay.style.display = "block";
+
+    setTimeout(() => {
+
+        jumpscareOverlay.style.display = "none";
+
+        resetGameEnvironment();
+
+    }, 1500);
+}
+
+// --- Reset ---
+function resetGameEnvironment() {
+
+    camera.position.set(
+        0,
+        1.7,
+        0
+    );
+
+    camera.rotation.set(0,0,0);
+
+    collectedFiles = 0;
+
+    stamina = maxStamina;
+
+    if (horrorEntity) {
+
+        horrorEntity.position.set(
+            0,
+            0,
+            -30
+        );
+    }
+
+    gameActive = true;
+
+    document.body.requestPointerLock();
+}
+
+// --- Resize ---
 function handleViewportResize() {
 
     camera.aspect =
@@ -999,5 +805,11 @@ function handleViewportResize() {
     );
 }
 
-// START
+// --- Placeholder Functions ---
+function buildSectorMap() {}
+function buildThresholdDoor() {}
+function spawnProceduralEvidenceFiles() {}
+function attemptItemPickup() {}
+
+// --- Start ---
 window.onload = init;
