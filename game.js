@@ -1,290 +1,166 @@
-// =========================
-// FULL FIXED MOVEMENT +
-// FLASHLIGHT SYSTEM
-// =========================
-
 // --- Core System Global State References ---
 let scene, camera, renderer, gltfLoader, animationMixer;
-
-let moveForward = false;
-let moveBackward = false;
-let moveLeft = false;
-let moveRight = false;
-
+let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
 let prevTime = performance.now();
-
 const clock = new THREE.Clock();
 
 let horrorEntity = null;
-
 let gameActive = false;
-
 let isPaused = false;
-
 let escapeDoor = null;
 
-// =========================
-// CAMERA ZOOM
-// =========================
+// --- Flashlight System ---
+let flashlightNode = null;
+let flashlightEnabled = true;
 
-let cameraFov = 65;
-
-const defaultFov = 65;
-
-const zoomedFov = 35;
-
-let isZooming = false;
-
-// =========================
-// FLASHLIGHT
-// =========================
-
-let flashlightNode;
-
-// =========================
-// MONSTER
-// =========================
-
-let monsterBaseSpeed = 2.8;
-
-let monsterScaleMultiplier = 11;
-
-// =========================
-// AUDIO
-// =========================
-
+// Audio Stream Context Architecture
 let audioCtx = null;
-
 let monsterTrackBuffer = null;
-
 let monsterAudioSource = null;
-
 let monsterGainNode = null;
-
 let breathingInterval = null;
 
-let jumpscareBuffer = null;
+// --- Jumpscare Audio ---
+let jumpscareAudio = null;
 
-let jumpscareSource = null;
-
-// =========================
-// FILES
-// =========================
-
+// Document Objective Tracking Mechanics
 let collectedFiles = 0;
-
 const totalFilesRequired = 7;
-
 let evidenceFileMeshes = [];
 
-// =========================
-// STAMINA
-// =========================
-
+// Stamina Physical Properties & States
 let stamina = 100;
-
 const maxStamina = 100;
-
 let isSprinting = false;
-
 let isExhausted = false;
 
-// =========================
-// JUMP
-// =========================
-
+// Jump state mechanics
 let isJumping = false;
-
 let verticalVelocity = 0;
-
 const gravityConstant = 32.0;
-
 let defaultPlayerHeight = 1.7;
 
-// =========================
-// COLLISION
-// =========================
+// Raycast Vector Math Engine
+const crosshairRaycaster = new THREE.Raycaster();
+const screenCenterVector = new THREE.Vector2(0, 0);
 
+// Collision Geometry Boundaries
 let wallBoxes = [];
-
 const playerRadius = 0.45;
 
-// =========================
-// RAYCAST
-// =========================
-
-const crosshairRaycaster =
-    new THREE.Raycaster();
-
-const screenCenterVector =
-    new THREE.Vector2(0,0);
-
-// =========================
-// DOM
-// =========================
-
-const startScreen =
-    document.getElementById('start-screen');
-
-const initializeBtn =
-    document.getElementById('initialize-btn');
-
-const jumpscareOverlay =
-    document.getElementById('jumpscare-overlay');
-
-const filesCountText =
-    document.getElementById('files-count');
-
-const keyStatusText =
-    document.getElementById('key-status');
-
-const sprintBarFill =
-    document.getElementById('sprint-bar-fill');
-
-// =========================
-// SETTINGS
-// =========================
+// DOM References
+const startScreen = document.getElementById('start-screen');
+const gameOverScreen = document.getElementById('game-over-screen');
+const initializeBtn = document.getElementById('initialize-btn');
+const jumpscareOverlay = document.getElementById('jumpscare-overlay');
+const filesCountText = document.getElementById('files-count');
+const keyStatusText = document.getElementById('key-status');
+const sprintBarFill = document.getElementById('sprint-bar-fill');
+const pauseScreen = document.getElementById('pause-screen');
+const resumeBtn = document.getElementById('resume-btn');
+const pauseSettingsBtn = document.getElementById('pause-settings-btn');
+const pauseQuitBtn = document.getElementById('pause-quit-btn');
+const cutsceneScreen = document.getElementById('cutscene-screen');
+const cutsceneVideo = document.getElementById('cutscene-video');
+const skipCutsceneBtn = document.getElementById('skip-cutscene-btn');
+const horrorQuoteText = document.getElementById('horror-quote');
+const getUpText = document.getElementById('get-up-text');
 
 let mouseSensitivity = 0.0022;
 
-// =========================
-// START GAME
-// =========================
+// Horror Quotes
+const horrorQuotes = [
+    "This is not over...",
+    "Sen. Bato is getting away again.",
+    "The tape cannot be stopped.",
+    "It watches through the lens.",
+    "You are trapped forever.",
+    "GET OUT WHILE YOU STILL CAN."
+];
 
+// --- Initialize Button ---
 initializeBtn.addEventListener('click', () => {
-
     startScreen.style.display = 'none';
 
     initAudioEngine();
-
     startBreathingEngine();
 
-    document.body.requestPointerLock();
-
     gameActive = true;
+
+    if (!isMobileDevice()) {
+        document.body.requestPointerLock();
+    }
 });
 
-// =========================
-// AUDIO ENGINE
-// =========================
+// --- Pointer Lock ---
+document.addEventListener('pointerlockchange', () => {
 
+    if (isMobileDevice()) return;
+
+    if (gameOverScreen.style.display === 'flex') return;
+
+    gameActive = (document.pointerLockElement === document.body);
+
+    if (!gameActive && !isPaused) {
+        startScreen.style.display = 'flex';
+    }
+});
+
+// --- Audio Engine ---
 function initAudioEngine() {
 
     if (audioCtx) {
-
-        if (audioCtx.state === 'suspended') {
-            audioCtx.resume();
-        }
-
+        if (audioCtx.state === 'suspended') audioCtx.resume();
         return;
     }
 
-    audioCtx =
-        new (
-            window.AudioContext ||
-            window.webkitAudioContext
-        )();
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-    monsterGainNode =
-        audioCtx.createGain();
+    monsterGainNode = audioCtx.createGain();
+    monsterGainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+    monsterGainNode.connect(audioCtx.destination);
 
-    monsterGainNode.gain.value = 0;
-
-    monsterGainNode.connect(
-        audioCtx.destination
-    );
-
-    // MONSTER AMBIENT
+    // Monster Ambient
     fetch('./monster_ambient.mp3')
-
-        .then(r => r.arrayBuffer())
-
-        .then(data =>
-            audioCtx.decodeAudioData(data)
-        )
-
+        .then(res => res.arrayBuffer())
+        .then(data => audioCtx.decodeAudioData(data))
         .then(buffer => {
-
             monsterTrackBuffer = buffer;
-
             startMonsterAmbientLoop();
         });
 
-    // JUMPSCARE
-    fetch('./jumpscare.mp3')
-
-        .then(r => r.arrayBuffer())
-
-        .then(data =>
-            audioCtx.decodeAudioData(data)
-        )
-
-        .then(buffer => {
-
-            jumpscareBuffer = buffer;
-        });
+    // Jumpscare Audio
+    jumpscareAudio = new Audio('./jumpscare.mp3');
+    jumpscareAudio.volume = 1;
 }
 
 function startMonsterAmbientLoop() {
 
-    if (
-        !audioCtx ||
-        !monsterTrackBuffer
-    ) {
-        return;
-    }
+    if (!audioCtx || !monsterTrackBuffer) return;
 
     if (monsterAudioSource) {
-
-        try {
-            monsterAudioSource.stop();
-        } catch(e) {}
-
-        monsterAudioSource.disconnect();
+        try { monsterAudioSource.stop(); } catch(e){}
     }
 
-    monsterAudioSource =
-        audioCtx.createBufferSource();
-
-    monsterAudioSource.buffer =
-        monsterTrackBuffer;
-
+    monsterAudioSource = audioCtx.createBufferSource();
+    monsterAudioSource.buffer = monsterTrackBuffer;
     monsterAudioSource.loop = true;
 
-    monsterAudioSource.connect(
-        monsterGainNode
-    );
-
+    monsterAudioSource.connect(monsterGainNode);
     monsterAudioSource.start(0);
 }
 
-// =========================
-// BREATHING
-// =========================
-
+// --- Breathing ---
 function startBreathingEngine() {
 
-    if (breathingInterval) {
-
-        clearInterval(
-            breathingInterval
-        );
-    }
+    if (breathingInterval) clearInterval(breathingInterval);
 
     breathingInterval = setInterval(() => {
 
         if (!gameActive) return;
 
-        if (
-            stamina < 75 ||
-            isSprinting
-        ) {
-
-            playProceduralBreathSigh(
-                stamina < 35
-                ? 0.15
-                : 0.05
-            );
+        if (stamina < 75 || isSprinting) {
+            playProceduralBreathSigh(0.08);
         }
 
     }, 1200);
@@ -292,435 +168,431 @@ function startBreathingEngine() {
 
 function playProceduralBreathSigh(volume) {
 
-    if (
-        !audioCtx ||
-        audioCtx.state === 'suspended'
-    ) {
-        return;
-    }
+    if (!audioCtx) return;
 
-    const bufferSize =
-        audioCtx.sampleRate * 0.4;
+    const bufferSize = audioCtx.sampleRate * 0.4;
 
-    const buffer =
-        audioCtx.createBuffer(
-            1,
-            bufferSize,
-            audioCtx.sampleRate
-        );
-
-    const data =
-        buffer.getChannelData(0);
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
 
     for (let i = 0; i < bufferSize; i++) {
-
-        data[i] =
-            Math.random() * 2 - 1;
+        data[i] = Math.random() * 2 - 1;
     }
 
-    const noiseNode =
-        audioCtx.createBufferSource();
+    const source = audioCtx.createBufferSource();
+    source.buffer = buffer;
 
-    noiseNode.buffer = buffer;
+    const gain = audioCtx.createGain();
 
-    const filterNode =
-        audioCtx.createBiquadFilter();
+    gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
 
-    filterNode.type = 'lowpass';
+    source.connect(gain);
+    gain.connect(audioCtx.destination);
 
-    filterNode.frequency.value =
-        350;
-
-    const gainNode =
-        audioCtx.createGain();
-
-    gainNode.gain.setValueAtTime(
-        volume,
-        audioCtx.currentTime
-    );
-
-    gainNode.gain.exponentialRampToValueAtTime(
-        0.001,
-        audioCtx.currentTime + 0.4
-    );
-
-    noiseNode.connect(filterNode);
-
-    filterNode.connect(gainNode);
-
-    gainNode.connect(audioCtx.destination);
-
-    noiseNode.start();
+    source.start();
 }
 
-// =========================
-// INIT
-// =========================
-
+// --- INIT ---
 function init() {
 
     scene = new THREE.Scene();
 
-    scene.background =
-        new THREE.Color(0x12120b);
+    scene.background = new THREE.Color(0x080803);
+    scene.fog = new THREE.FogExp2(0x080803, 0.12);
 
-    scene.fog =
-        new THREE.FogExp2(
-            0x12120b,
-            0.14
-        );
-
-    // CAMERA
-    camera =
-        new THREE.PerspectiveCamera(
-            cameraFov,
-            window.innerWidth /
-            window.innerHeight,
-            0.1,
-            1000
-        );
-
-    camera.position.set(
-        0,
-        defaultPlayerHeight,
-        0
+    camera = new THREE.PerspectiveCamera(
+        65,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        1000
     );
 
-    camera.rotation.order = 'YXZ';
+    camera.position.set(0, defaultPlayerHeight, 0);
 
-    // RENDERER
-    renderer =
-        new THREE.WebGLRenderer({
-            antialias: false
-        });
+    renderer = new THREE.WebGLRenderer({
+        antialias: false
+    });
 
-    renderer.setSize(
-        window.innerWidth,
-        window.innerHeight
-    );
+    renderer.setSize(window.innerWidth, window.innerHeight);
 
-    renderer.setPixelRatio(
-        Math.min(
-            window.devicePixelRatio,
-            1.2
-        )
-    );
-
-    renderer.outputEncoding =
-        THREE.sRGBEncoding;
-
-    document
-        .getElementById('canvas-container')
+    document.getElementById('canvas-container')
         .appendChild(renderer.domElement);
 
-    // LIGHTS
-    const ambientFloorLight =
-        new THREE.AmbientLight(
-            0xffffff,
-            0.55
-        );
+    // Lighting
+    const ambient = new THREE.AmbientLight(0xffffff, 0.08);
+    scene.add(ambient);
 
-    scene.add(ambientFloorLight);
-
-    const directionalSun =
-        new THREE.DirectionalLight(
-            0xffffff,
-            0.45
-        );
-
-    directionalSun.position.set(
-        5,
-        15,
-        5
+    // --- FLASHLIGHT FIX ---
+    flashlightNode = new THREE.SpotLight(
+        0xfff2cc,
+        18,
+        35,
+        Math.PI / 5,
+        0.45,
+        1
     );
 
-    scene.add(directionalSun);
+    flashlightNode.position.set(0, 0, 0);
 
-    // =========================
-    // FLASHLIGHT FIX
-    // =========================
+    flashlightNode.castShadow = false;
 
-    flashlightNode =
-        new THREE.SpotLight(
-            0xffe8b5,
-            12,
-            30,
-            Math.PI / 5,
-            0.45,
-            1.4
-        );
-
-    flashlightNode.position.set(
-        0,
-        0,
-        0
-    );
+    flashlightNode.target.position.set(0, 0, -10);
 
     camera.add(flashlightNode);
-
-    flashlightNode.target =
-        new THREE.Object3D();
-
-    flashlightNode.target.position.set(
-        0,
-        0,
-        -10
-    );
-
-    camera.add(
-        flashlightNode.target
-    );
+    camera.add(flashlightNode.target);
 
     scene.add(camera);
 
-    // WORLD
     buildSectorMap();
 
-    // MONSTER
-    gltfLoader =
-        new THREE.GLTFLoader();
+    buildThresholdDoor(-8, 0, -38);
+
+    spawnProceduralEvidenceFiles();
+
+    // Monster
+    gltfLoader = new THREE.GLTFLoader();
 
     gltfLoader.load(
-
         './monster.glb',
 
         (gltf) => {
 
-            horrorEntity =
-                gltf.scene;
+            horrorEntity = gltf.scene;
 
-            horrorEntity.position.set(
-                0,
-                0,
-                -30
-            );
+            horrorEntity.position.set(0, 0, -30);
 
-            horrorEntity.scale.set(
-                monsterScaleMultiplier,
-                monsterScaleMultiplier,
-                monsterScaleMultiplier
-            );
+            // --- BIGGER MONSTER ---
+            horrorEntity.scale.set(12, 12, 12);
 
-            if (
-                gltf.animations &&
-                gltf.animations.length > 0
-            ) {
+            if (gltf.animations.length > 0) {
 
                 animationMixer =
-                    new THREE.AnimationMixer(
-                        horrorEntity
-                    );
+                    new THREE.AnimationMixer(horrorEntity);
 
                 animationMixer
-                    .clipAction(
-                        gltf.animations[0]
-                    )
+                    .clipAction(gltf.animations[0])
                     .play();
             }
 
             scene.add(horrorEntity);
+        },
+
+        undefined,
+
+        () => {
+            spawnProxyMonsterMesh();
         }
     );
 
     setupControlBindings();
 
-    window.addEventListener(
-        'resize',
-        handleViewportResize
-    );
+    window.addEventListener('resize', handleViewportResize);
 
     animate();
 }
 
-// =========================
-// CONTROLS
-// =========================
+// --- Proxy Monster ---
+function spawnProxyMonsterMesh() {
 
-function setupControlBindings() {
+    const geo = new THREE.BoxGeometry(4, 8, 4);
 
-    // CAMERA LOOK
-    document.addEventListener(
-        'mousemove',
-        (e) => {
+    const mat = new THREE.MeshBasicMaterial({
+        color: 0xff0000
+    });
 
-            if (!gameActive) return;
+    horrorEntity = new THREE.Mesh(geo, mat);
 
-            camera.rotation.y -=
-                e.movementX *
-                mouseSensitivity;
+    horrorEntity.position.set(0, 4, -30);
 
-            camera.rotation.x -=
-                e.movementY *
-                mouseSensitivity;
-
-            camera.rotation.x =
-                Math.max(
-                    -Math.PI / 2.1,
-                    Math.min(
-                        Math.PI / 2.1,
-                        camera.rotation.x
-                    )
-                );
-        }
-    );
-
-    // ZOOM
-    document.addEventListener(
-        'mousedown',
-        (e) => {
-
-            if (e.button === 2) {
-
-                isZooming = true;
-            }
-        }
-    );
-
-    document.addEventListener(
-        'mouseup',
-        (e) => {
-
-            if (e.button === 2) {
-
-                isZooming = false;
-            }
-        }
-    );
-
-    document.addEventListener(
-        'contextmenu',
-        (e) => e.preventDefault()
-    );
-
-    // KEYS
-    document.addEventListener(
-        'keydown',
-        (e) => {
-
-            switch(e.code) {
-
-                case 'KeyW':
-                    moveForward = true;
-                    break;
-
-                case 'KeyS':
-                    moveBackward = true;
-                    break;
-
-                case 'KeyA':
-                    moveLeft = true;
-                    break;
-
-                case 'KeyD':
-                    moveRight = true;
-                    break;
-
-                case 'ShiftLeft':
-                case 'ShiftRight':
-
-                    if (!isExhausted) {
-                        isSprinting = true;
-                    }
-
-                    break;
-            }
-        }
-    );
-
-    document.addEventListener(
-        'keyup',
-        (e) => {
-
-            switch(e.code) {
-
-                case 'KeyW':
-                    moveForward = false;
-                    break;
-
-                case 'KeyS':
-                    moveBackward = false;
-                    break;
-
-                case 'KeyA':
-                    moveLeft = false;
-                    break;
-
-                case 'KeyD':
-                    moveRight = false;
-                    break;
-
-                case 'ShiftLeft':
-                case 'ShiftRight':
-                    isSprinting = false;
-                    break;
-            }
-        }
-    );
+    scene.add(horrorEntity);
 }
 
-// =========================
-// ANIMATE
-// =========================
+// --- Map ---
+function buildSectorMap() {
 
-function animate() {
-
-    requestAnimationFrame(
-        animate
+    const floor = new THREE.Mesh(
+        new THREE.PlaneGeometry(120, 120),
+        new THREE.MeshStandardMaterial({
+            color: 0x2a2a1e
+        })
     );
 
-    const currentTime =
-        performance.now();
+    floor.rotation.x = -Math.PI / 2;
 
-    const frameDelta =
-        (currentTime - prevTime)
-        / 1000;
+    scene.add(floor);
+
+    const wallMat = new THREE.MeshStandardMaterial({
+        color: 0x736e43
+    });
+
+    const blueprint = [
+        {w:2,d:20,x:-10,z:-15},
+        {w:20,d:2,x:0,z:-25},
+        {w:2,d:30,x:12,z:-20},
+        {w:15,d:2,x:-5,z:-5},
+        {w:2,d:15,x:0,z:-40},
+        {w:40,d:2,x:-10,z:-45},
+        {w:16,d:2,x:25,z:-10},
+        {w:2,d:20,x:-25,z:-5},
+        {w:100,d:2,x:0,z:50},
+        {w:100,d:2,x:0,z:-50},
+        {w:2,d:100,x:50,z:0},
+        {w:2,d:100,x:-50,z:0}
+    ];
+
+    blueprint.forEach(w => {
+
+        const mesh = new THREE.Mesh(
+            new THREE.BoxGeometry(w.w, 5.5, w.d),
+            wallMat
+        );
+
+        mesh.position.set(w.x, 2.75, w.z);
+
+        scene.add(mesh);
+
+        wallBoxes.push(
+            new THREE.Box3().setFromObject(mesh)
+        );
+    });
+}
+
+// --- Door ---
+function buildThresholdDoor(x,y,z) {
+
+    escapeDoor = new THREE.Group();
+
+    const mesh = new THREE.Mesh(
+        new THREE.BoxGeometry(2,3.5,0.2),
+        new THREE.MeshStandardMaterial({
+            color: 0x550000
+        })
+    );
+
+    mesh.position.y = 1.75;
+
+    escapeDoor.add(mesh);
+
+    escapeDoor.position.set(x,y,z);
+
+    scene.add(escapeDoor);
+}
+
+// --- Evidence ---
+function spawnProceduralEvidenceFiles() {
+
+    const points = [
+        {x:32,z:38},
+        {x:-38,z:18},
+        {x:22,z:-32},
+        {x:-42,z:-18},
+        {x:-18,z:-35},
+        {x:5,z:25},
+        {x:18,z:12}
+    ];
+
+    for (let i=0;i<totalFilesRequired;i++) {
+
+        const p = points[i];
+
+        const mesh = new THREE.Mesh(
+            new THREE.BoxGeometry(0.6,0.3,0.7),
+            new THREE.MeshStandardMaterial({
+                color:0xe6dfb8,
+                emissive:0x221e10
+            })
+        );
+
+        mesh.position.set(p.x,0.15,p.z);
+
+        scene.add(mesh);
+
+        evidenceFileMeshes.push(mesh);
+    }
+}
+
+// --- Pickup ---
+function attemptItemPickup() {
+
+    if (!gameActive) return;
+
+    crosshairRaycaster.setFromCamera(
+        screenCenterVector,
+        camera
+    );
+
+    const hits = crosshairRaycaster
+        .intersectObjects(evidenceFileMeshes);
+
+    if (hits.length > 0) {
+
+        const object = hits[0].object;
+
+        if (camera.position.distanceTo(object.position) <= 3.5) {
+
+            scene.remove(object);
+
+            evidenceFileMeshes.splice(
+                evidenceFileMeshes.indexOf(object),
+                1
+            );
+
+            collectedFiles++;
+
+            filesCountText.innerText =
+                collectedFiles + "/" + totalFilesRequired;
+
+            if (collectedFiles >= totalFilesRequired) {
+
+                keyStatusText.innerText = "UNLOCKED";
+                keyStatusText.className = "success-txt";
+            }
+        }
+    }
+}
+
+// --- Jump ---
+function executeJumpLeap() {
+
+    if (isJumping || stamina < 22) return;
+
+    isJumping = true;
+
+    stamina -= 22;
+
+    verticalVelocity = 11.5;
+}
+
+// --- Controls ---
+function setupControlBindings() {
+
+    // Mouse Look
+    document.addEventListener('mousemove', (e) => {
+
+        if (!gameActive || isMobileDevice()) return;
+
+        camera.rotation.y -=
+            e.movementX * mouseSensitivity;
+
+        camera.rotation.x -=
+            e.movementY * mouseSensitivity;
+
+        camera.rotation.x = Math.max(
+            -Math.PI/2.2,
+            Math.min(Math.PI/2.2, camera.rotation.x)
+        );
+    });
+
+    camera.rotation.order = "YXZ";
+
+    // Pickup
+    document.addEventListener('mousedown', (e) => {
+
+        if (gameActive && e.button === 0) {
+            attemptItemPickup();
+        }
+    });
+
+    // Keyboard
+    document.addEventListener('keydown', (e) => {
+
+        switch(e.code) {
+
+            case 'KeyW':
+                moveForward = true;
+                break;
+
+            case 'KeyS':
+                moveBackward = true;
+                break;
+
+            case 'KeyA':
+                moveLeft = true;
+                break;
+
+            case 'KeyD':
+                moveRight = true;
+                break;
+
+            case 'Space':
+                executeJumpLeap();
+                break;
+
+            case 'KeyE':
+                attemptItemPickup();
+                break;
+
+            case 'ShiftLeft':
+            case 'ShiftRight':
+
+                if (!isExhausted)
+                    isSprinting = true;
+
+                break;
+
+            // --- FLASHLIGHT TOGGLE ---
+            case 'KeyF':
+
+                flashlightEnabled = !flashlightEnabled;
+
+                flashlightNode.visible = flashlightEnabled;
+
+                break;
+        }
+    });
+
+    document.addEventListener('keyup', (e) => {
+
+        switch(e.code) {
+
+            case 'KeyW':
+                moveForward = false;
+                break;
+
+            case 'KeyS':
+                moveBackward = false;
+                break;
+
+            case 'KeyA':
+                moveLeft = false;
+                break;
+
+            case 'KeyD':
+                moveRight = false;
+                break;
+
+            case 'ShiftLeft':
+            case 'ShiftRight':
+                isSprinting = false;
+                break;
+        }
+    });
+}
+
+// --- GAME LOOP ---
+function animate() {
+
+    requestAnimationFrame(animate);
+
+    const currentTime = performance.now();
+
+    const delta = (currentTime - prevTime) / 1000;
 
     if (animationMixer) {
-
-        animationMixer.update(
-            clock.getDelta()
-        );
+        animationMixer.update(clock.getDelta());
     }
-
-    // ZOOM
-    const targetFov =
-        isZooming
-        ? zoomedFov
-        : defaultFov;
-
-    camera.fov +=
-        (targetFov - camera.fov)
-        * 6
-        * frameDelta;
-
-    camera.updateProjectionMatrix();
-
-    // FLASHLIGHT FLICKER
-    flashlightNode.intensity =
-        10 +
-        Math.sin(currentTime * 0.02)
-        * 0.6;
 
     if (gameActive) {
 
-        // =========================
-        // MOVEMENT FIX
-        // =========================
+        // --- Stamina ---
+        const moving =
+            moveForward || moveBackward ||
+            moveLeft || moveRight;
 
-        const userIsMoving =
-            moveForward ||
-            moveBackward ||
-            moveLeft ||
-            moveRight;
+        if (isSprinting && moving) {
 
-        // STAMINA
-        if (
-            isSprinting &&
-            userIsMoving
-        ) {
-
-            stamina -=
-                18.5 * frameDelta;
+            stamina -= 18 * delta;
 
             if (stamina <= 0) {
 
@@ -730,285 +602,263 @@ function animate() {
 
                 isExhausted = true;
 
-                sprintBarFill.classList.add(
-                    'exhausted'
-                );
+                sprintBarFill.classList.add('exhausted');
             }
 
         } else {
 
-            stamina +=
-                (userIsMoving
-                ? 7.5
-                : 14.0)
-                * frameDelta;
+            stamina += 12 * delta;
 
-            if (stamina > maxStamina) {
-
+            if (stamina > maxStamina)
                 stamina = maxStamina;
-            }
 
-            if (
-                isExhausted &&
-                stamina >= 30
-            ) {
+            if (stamina > 30) {
 
                 isExhausted = false;
 
-                sprintBarFill.classList.remove(
-                    'exhausted'
-                );
+                sprintBarFill.classList.remove('exhausted');
             }
         }
 
         sprintBarFill.style.width =
-            (
-                (stamina / maxStamina)
-                * 100
-            ) + "%";
+            (stamina / maxStamina) * 100 + "%";
 
-        // SPEED
-        let moveSpeed =
-            isSprinting
-            ? 11.5
-            : 5.8;
+        // --- MOVEMENT FIX ---
+        const speed = isSprinting ? 10 : 5.5;
 
-        // DIRECTION
         const forward =
-            new THREE.Vector3();
-
-        camera.getWorldDirection(
-            forward
-        );
-
-        forward.y = 0;
-
-        forward.normalize();
+            new THREE.Vector3(0,0,-1)
+            .applyQuaternion(camera.quaternion);
 
         const right =
-            new THREE.Vector3();
+            new THREE.Vector3(1,0,0)
+            .applyQuaternion(camera.quaternion);
 
-        right.crossVectors(
-            forward,
-            new THREE.Vector3(0,1,0)
-        );
+        forward.y = 0;
+        right.y = 0;
 
+        forward.normalize();
         right.normalize();
 
-        // VELOCITY
-        const velocity =
-            new THREE.Vector3();
+        let velocity = new THREE.Vector3();
 
-        if (moveForward) {
+        if (moveForward)
             velocity.add(forward);
-        }
 
-        if (moveBackward) {
+        if (moveBackward)
             velocity.sub(forward);
-        }
 
-        if (moveRight) {
-            velocity.sub(right);
-        }
-
-        if (moveLeft) {
+        if (moveRight)
             velocity.add(right);
-        }
+
+        if (moveLeft)
+            velocity.sub(right);
 
         velocity.normalize();
 
-        velocity.multiplyScalar(
-            moveSpeed * frameDelta
-        );
+        velocity.multiplyScalar(speed * delta);
 
-        camera.position.add(
-            velocity
-        );
+        const oldX = camera.position.x;
+        const oldZ = camera.position.z;
 
-        // =========================
-        // MONSTER
-        // =========================
+        camera.position.x += velocity.x;
+        camera.position.z += velocity.z;
 
+        // Collision
+        for (let wall of wallBoxes) {
+
+            if (
+                wall.containsPoint(
+                    new THREE.Vector3(
+                        camera.position.x,
+                        camera.position.y,
+                        camera.position.z
+                    )
+                )
+            ) {
+
+                camera.position.x = oldX;
+                camera.position.z = oldZ;
+
+                break;
+            }
+        }
+
+        // Jump
+        if (isJumping) {
+
+            verticalVelocity -= gravityConstant * delta;
+
+            defaultPlayerHeight +=
+                verticalVelocity * delta;
+
+            if (defaultPlayerHeight <= 1.7) {
+
+                defaultPlayerHeight = 1.7;
+
+                verticalVelocity = 0;
+
+                isJumping = false;
+            }
+        }
+
+        camera.position.y = defaultPlayerHeight;
+
+        // Evidence Rotation
+        evidenceFileMeshes.forEach(mesh => {
+            mesh.rotation.y += 1.2 * delta;
+        });
+
+        // --- MONSTER AI FASTER ---
         if (horrorEntity) {
 
-            const distanceToTarget =
+            horrorEntity.lookAt(
+                camera.position.x,
+                horrorEntity.position.y,
+                camera.position.z
+            );
+
+            const distance =
                 horrorEntity.position.distanceTo(
                     camera.position
                 );
 
-            horrorEntity.lookAt(
-                new THREE.Vector3(
-                    camera.position.x,
-                    horrorEntity.position.y,
-                    camera.position.z
-                )
-            );
-
-            let monsterSpeed =
-                monsterBaseSpeed +
-                (collectedFiles * 0.9);
-
-            if (isSprinting) {
-                monsterSpeed += 1.8;
-            }
-
+            // MUCH FASTER
             horrorEntity.translateZ(
-                monsterSpeed *
-                frameDelta
+                (4 + collectedFiles * 0.9) * delta
             );
 
-            // AUDIO
-            if (
-                monsterGainNode &&
-                audioCtx
-            ) {
+            // Audio proximity
+            if (monsterGainNode && audioCtx) {
 
-                let targetVolume =
-                    (
-                        distanceToTarget < 28
-                    )
-                    ? Math.pow(
-                        1 -
-                        (distanceToTarget / 28),
-                        2
-                    ) * 0.85
+                const volume =
+                    distance < 30
+                    ? (1 - distance / 30)
                     : 0;
 
-                monsterGainNode.gain
-                    .linearRampToValueAtTime(
-                        targetVolume,
-                        audioCtx.currentTime + 0.1
-                    );
+                monsterGainNode.gain.linearRampToValueAtTime(
+                    volume,
+                    audioCtx.currentTime + 0.1
+                );
             }
 
-            // CAMERA SHAKE
-            if (distanceToTarget < 10) {
-
-                camera.rotation.z =
-                    Math.sin(currentTime * 0.02)
-                    * 0.01
-                    * (10 - distanceToTarget);
-
-            } else {
-
-                camera.rotation.z = 0;
-            }
-
-            // JUMPSCARE
-            if (distanceToTarget < 3.4) {
-
+            if (distance < 4) {
                 triggerAnomalyJumpscare();
             }
         }
     }
 
-    // FLASHLIGHT FOLLOW
-    camera.updateMatrixWorld();
-
     prevTime = currentTime;
 
-    renderer.render(
-        scene,
-        camera
-    );
+    renderer.render(scene, camera);
 }
 
-// =========================
-// JUMPSCARE
-// =========================
-
+// --- JUMPSCARE ---
 function triggerAnomalyJumpscare() {
 
     gameActive = false;
 
-    document.exitPointerLock();
-
-    if (
-        monsterGainNode &&
-        audioCtx
-    ) {
-
+    if (monsterGainNode && audioCtx) {
         monsterGainNode.gain.setValueAtTime(
             0,
             audioCtx.currentTime
         );
     }
 
-    // SOUND
-    if (
-        audioCtx &&
-        jumpscareBuffer
-    ) {
+    // --- PLAY JUMPSCARE SOUND ---
+    if (jumpscareAudio) {
 
-        jumpscareSource =
-            audioCtx.createBufferSource();
+        jumpscareAudio.currentTime = 0;
 
-        jumpscareSource.buffer =
-            jumpscareBuffer;
-
-        jumpscareSource.connect(
-            audioCtx.destination
-        );
-
-        jumpscareSource.start(0);
+        jumpscareAudio.play();
     }
 
-    jumpscareOverlay.style.display =
-        'block';
+    jumpscareOverlay.style.display = 'block';
 
     setTimeout(() => {
 
-        jumpscareOverlay.style.display =
-            'none';
+        jumpscareOverlay.style.display = 'none';
 
-        resetGameEnvironment();
+        renderStaticGameOverScreen();
 
     }, 1500);
 }
 
-// =========================
-// RESET
-// =========================
+// --- Game Over ---
+function renderStaticGameOverScreen() {
 
+    const quote =
+        horrorQuotes[
+            Math.floor(Math.random() * horrorQuotes.length)
+        ];
+
+    horrorQuoteText.textContent = quote;
+
+    horrorQuoteText.style.display = 'block';
+
+    getUpText.style.display = 'none';
+
+    gameOverScreen.style.display = 'flex';
+
+    setTimeout(() => {
+
+        horrorQuoteText.style.display = 'none';
+
+        getUpText.style.display = 'block';
+
+        setTimeout(() => {
+
+            gameOverScreen.style.display = 'none';
+
+            resetGameEnvironment();
+
+            if (!isMobileDevice()) {
+                document.body.requestPointerLock();
+            }
+
+        }, 1500);
+
+    }, 2000);
+}
+
+// --- Reset ---
 function resetGameEnvironment() {
 
-    camera.position.set(
-        0,
-        1.7,
-        0
-    );
+    camera.position.set(0,1.7,0);
 
-    camera.rotation.set(
-        0,
-        0,
-        0
-    );
+    camera.rotation.set(0,0,0);
+
+    collectedFiles = 0;
 
     stamina = maxStamina;
 
-    if (horrorEntity) {
+    filesCountText.innerText =
+        "0/" + totalFilesRequired;
 
-        horrorEntity.position.set(
-            0,
-            0,
-            -30
-        );
+    keyStatusText.innerText = "LOCKED";
+
+    keyStatusText.className = "danger-txt";
+
+    evidenceFileMeshes.forEach(m => scene.remove(m));
+
+    evidenceFileMeshes = [];
+
+    spawnProceduralEvidenceFiles();
+
+    if (horrorEntity) {
+        horrorEntity.position.set(0,0,-30);
     }
 
-    gameActive = true;
+    startMonsterAmbientLoop();
 
-    document.body.requestPointerLock();
+    gameActive = true;
 }
 
-// =========================
-// RESIZE
-// =========================
-
+// --- Resize ---
 function handleViewportResize() {
 
     camera.aspect =
-        window.innerWidth /
-        window.innerHeight;
+        window.innerWidth / window.innerHeight;
 
     camera.updateProjectionMatrix();
 
@@ -1018,15 +868,12 @@ function handleViewportResize() {
     );
 }
 
-// =========================
-// PLACEHOLDER
-// =========================
+// --- Mobile Detection ---
+function isMobileDevice() {
 
-function buildSectorMap() {}
-function attemptItemPickup() {}
+    return /Mobi|Android|iPhone|iPad/i
+        .test(navigator.userAgent);
+}
 
-// =========================
-// START
-// =========================
-
+// --- Start ---
 window.onload = init;
