@@ -1,9 +1,12 @@
-// =========================================
+// ============================================
 // ARCHIVAL RECOVERY 2026
-// FULL FIXED MOBILE + DESKTOP VERSION
-// =========================================
+// FULL MOBILE + DESKTOP FIXED VERSION
+// ============================================
 
-// --- CORE GLOBALS ---
+// ============================================
+// GLOBALS
+// ============================================
+
 let scene, camera, renderer, gltfLoader, animationMixer;
 
 let moveForward = false;
@@ -15,96 +18,158 @@ let prevTime = performance.now();
 const clock = new THREE.Clock();
 
 let horrorEntity = null;
-let gameActive = false;
-let isPaused = false;
 let escapeDoor = null;
 
-// --- AUDIO ---
-let audioCtx = null;
-let monsterTrackBuffer = null;
-let monsterAudioSource = null;
-let monsterGainNode = null;
+let gameActive = false;
+let isPaused = false;
 
-// --- GAME STATE ---
 let collectedFiles = 0;
 const totalFilesRequired = 7;
+
 let evidenceFileMeshes = [];
 
 let stamina = 100;
 const maxStamina = 100;
+
 let isSprinting = false;
 let isExhausted = false;
 
-// --- JUMP ---
 let isJumping = false;
 let verticalVelocity = 0;
+
 const gravityConstant = 32;
+
 let defaultPlayerHeight = 1.7;
 
-// --- COLLISION ---
 let wallBoxes = [];
+
 const playerRadius = 0.45;
 
-// --- RAYCAST ---
 const crosshairRaycaster = new THREE.Raycaster();
 const screenCenterVector = new THREE.Vector2(0, 0);
 
-// --- DOM ---
-const startScreen = document.getElementById("start-screen");
-const initializeBtn = document.getElementById("initialize-btn");
+let mouseSensitivity = 0.0022;
 
-const filesCountText = document.getElementById("files-count");
-const keyStatusText = document.getElementById("key-status");
+// ============================================
+// DOM
+// ============================================
 
-const sprintBarFill = document.getElementById("sprint-bar-fill");
+const startScreen =
+    document.getElementById("start-screen");
 
-const pauseScreen = document.getElementById("pause-screen");
+const pauseScreen =
+    document.getElementById("pause-screen");
 
-const resumeBtn = document.getElementById("resume-btn");
+const gameOverScreen =
+    document.getElementById("game-over-screen");
 
-const gameOverScreen = document.getElementById("game-over-screen");
-const jumpscareOverlay = document.getElementById("jumpscare-overlay");
+const jumpscareOverlay =
+    document.getElementById("jumpscare-overlay");
 
-// --- MOBILE ---
-const mobileControls = document.getElementById("mobile-controls");
+const initializeBtn =
+    document.getElementById("initialize-btn");
+
+const newGameBtn =
+    document.getElementById("newgame-btn");
+
+const resumeBtn =
+    document.getElementById("resume-btn");
+
+const pauseSettingsBtn =
+    document.getElementById("pause-settings-btn");
+
+const pauseQuitBtn =
+    document.getElementById("pause-quit-btn");
+
+const settingsBtn =
+    document.getElementById("settings-btn");
+
+const creditsBtn =
+    document.getElementById("credits-btn");
+
+const backBtn =
+    document.getElementById("back-btn");
+
+const creditsBackBtn =
+    document.getElementById("credits-back-btn");
+
+const settingsScreen =
+    document.getElementById("settings-screen");
+
+const creditsScreen =
+    document.getElementById("credits-screen");
+
+const filesCountText =
+    document.getElementById("files-count");
+
+const keyStatusText =
+    document.getElementById("key-status");
+
+const sprintBarFill =
+    document.getElementById("sprint-bar-fill");
+
+// ============================================
+// MOBILE
+// ============================================
+
+const mobileControls =
+    document.getElementById("mobile-controls");
 
 const joystickContainer =
     document.getElementById("joystick-container");
 
-const joystick = document.getElementById("joystick");
+const joystick =
+    document.getElementById("joystick");
 
-const btnSprint = document.getElementById("btn-sprint");
-const btnJump = document.getElementById("btn-jump");
-const btnInteract = document.getElementById("btn-interact");
-const btnPause = document.getElementById("btn-pause");
+const btnSprint =
+    document.getElementById("btn-sprint");
 
-// --- SETTINGS ---
-let mouseSensitivity = 0.0022;
+const btnJump =
+    document.getElementById("btn-jump");
 
-// =========================================
+const btnInteract =
+    document.getElementById("btn-interact");
+
+const btnPause =
+    document.getElementById("btn-pause");
+
+const isMobile =
+    /Android|iPhone|iPad|iPod/i
+    .test(navigator.userAgent);
+
+// ============================================
 // INIT
-// =========================================
+// ============================================
 
 function init() {
 
     scene = new THREE.Scene();
 
-    scene.background = new THREE.Color(0x12120b);
+    scene.background =
+        new THREE.Color(0x12120b);
 
-    scene.fog = new THREE.FogExp2(0x12120b, 0.14);
+    scene.fog =
+        new THREE.FogExp2(0x12120b, 0.14);
 
-    camera = new THREE.PerspectiveCamera(
-        65,
-        window.innerWidth / window.innerHeight,
-        0.1,
-        1000
+    camera =
+        new THREE.PerspectiveCamera(
+            65,
+            window.innerWidth /
+            window.innerHeight,
+            0.1,
+            1000
+        );
+
+    camera.position.set(
+        0,
+        defaultPlayerHeight,
+        0
     );
 
-    camera.position.set(0, defaultPlayerHeight, 0);
-
-    renderer = new THREE.WebGLRenderer({
-        antialias: false
-    });
+    renderer =
+        new THREE.WebGLRenderer({
+            antialias: false
+        });
 
     renderer.setSize(
         window.innerWidth,
@@ -112,10 +177,14 @@ function init() {
     );
 
     renderer.setPixelRatio(
-        Math.min(window.devicePixelRatio, 1.2)
+        Math.min(
+            window.devicePixelRatio,
+            1.2
+        )
     );
 
-    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.outputEncoding =
+        THREE.sRGBEncoding;
 
     document
         .getElementById("canvas-container")
@@ -123,40 +192,48 @@ function init() {
 
     // LIGHTS
 
-    const ambient = new THREE.AmbientLight(
-        0xffffff,
-        0.6
-    );
+    const ambient =
+        new THREE.AmbientLight(
+            0xffffff,
+            0.6
+        );
 
     scene.add(ambient);
 
-    const directional = new THREE.DirectionalLight(
-        0xffffff,
-        0.5
-    );
+    const directional =
+        new THREE.DirectionalLight(
+            0xffffff,
+            0.5
+        );
 
-    directional.position.set(5, 15, 5);
+    directional.position.set(5,15,5);
 
     scene.add(directional);
 
     // FLASHLIGHT
 
-    const flashlight = new THREE.SpotLight(
-        0xfff5d1,
-        8,
-        24,
-        Math.PI / 4.5,
-        0.5,
-        1.3
+    const flashlight =
+        new THREE.SpotLight(
+            0xfff5d1,
+            8,
+            24,
+            Math.PI / 4.5,
+            0.5,
+            1.3
+        );
+
+    flashlight.position.set(0,0,0);
+
+    flashlight.target =
+        new THREE.Object3D();
+
+    flashlight.target.position.set(
+        0,
+        0,
+        -1
     );
 
-    flashlight.position.set(0, 0, 0);
-
     camera.add(flashlight);
-
-    flashlight.target = new THREE.Object3D();
-
-    flashlight.target.position.set(0, 0, -1);
 
     camera.add(flashlight.target);
 
@@ -166,26 +243,40 @@ function init() {
 
     buildSectorMap();
 
-    buildThresholdDoor(-8, 0, -38);
+    buildThresholdDoor(-8,0,-38);
 
     spawnProceduralEvidenceFiles();
 
     // MONSTER
 
-    gltfLoader = new THREE.GLTFLoader();
+    gltfLoader =
+        new THREE.GLTFLoader();
 
     gltfLoader.load(
+
         "./monster.glb",
 
         (gltf) => {
 
-            horrorEntity = gltf.scene;
+            horrorEntity =
+                gltf.scene;
 
-            horrorEntity.position.set(0, 0, -30);
+            horrorEntity.position.set(
+                0,
+                0,
+                -30
+            );
 
-            horrorEntity.scale.set(7, 7, 7);
+            horrorEntity.scale.set(
+                7,
+                7,
+                7
+            );
 
-            if (gltf.animations.length > 0) {
+            if (
+                gltf.animations &&
+                gltf.animations.length > 0
+            ) {
 
                 animationMixer =
                     new THREE.AnimationMixer(
@@ -193,7 +284,9 @@ function init() {
                     );
 
                 animationMixer
-                    .clipAction(gltf.animations[0])
+                    .clipAction(
+                        gltf.animations[0]
+                    )
                     .play();
             }
 
@@ -211,6 +304,11 @@ function init() {
 
     setupMobileControls();
 
+    setupMenus();
+
+    mobileControls.style.display =
+        "none";
+
     window.addEventListener(
         "resize",
         handleViewportResize
@@ -219,30 +317,35 @@ function init() {
     animate();
 }
 
-// =========================================
+// ============================================
 // MAP
-// =========================================
+// ============================================
 
 function buildSectorMap() {
 
-    const floor = new THREE.Mesh(
+    const floor =
+        new THREE.Mesh(
 
-        new THREE.PlaneGeometry(120, 120),
+            new THREE.PlaneGeometry(
+                120,
+                120
+            ),
 
-        new THREE.MeshStandardMaterial({
-            color: 0x423f28
-        })
-    );
+            new THREE.MeshStandardMaterial({
+                color:0x423f28
+            })
+        );
 
     floor.rotation.x = -Math.PI / 2;
 
     scene.add(floor);
 
-    const wallMat = new THREE.MeshStandardMaterial({
-        color: 0x736e43
-    });
+    const wallMat =
+        new THREE.MeshStandardMaterial({
+            color:0x736e43
+        });
 
-    const walls = [
+    const blueprint = [
 
         {w:2,d:20,x:-10,z:-15},
         {w:20,d:2,x:0,z:-25},
@@ -256,18 +359,19 @@ function buildSectorMap() {
         {w:2,d:100,x:-50,z:0}
     ];
 
-    walls.forEach(def => {
+    blueprint.forEach(def => {
 
-        const wall = new THREE.Mesh(
+        const wall =
+            new THREE.Mesh(
 
-            new THREE.BoxGeometry(
-                def.w,
-                5.5,
-                def.d
-            ),
+                new THREE.BoxGeometry(
+                    def.w,
+                    5.5,
+                    def.d
+                ),
 
-            wallMat
-        );
+                wallMat
+            );
 
         wall.position.set(
             def.x,
@@ -278,34 +382,44 @@ function buildSectorMap() {
         scene.add(wall);
 
         wallBoxes.push(
-            new THREE.Box3().setFromObject(wall)
+            new THREE.Box3()
+            .setFromObject(wall)
         );
     });
 }
 
-// =========================================
+// ============================================
 // DOOR
-// =========================================
+// ============================================
 
-function buildThresholdDoor(x, y, z) {
+function buildThresholdDoor(x,y,z) {
 
-    escapeDoor = new THREE.Mesh(
+    escapeDoor =
+        new THREE.Mesh(
 
-        new THREE.BoxGeometry(2, 3, 0.2),
+            new THREE.BoxGeometry(
+                2,
+                3,
+                0.2
+            ),
 
-        new THREE.MeshStandardMaterial({
-            color: 0x4a0a0a
-        })
+            new THREE.MeshStandardMaterial({
+                color:0x4a0a0a
+            })
+        );
+
+    escapeDoor.position.set(
+        x,
+        1.5,
+        z
     );
-
-    escapeDoor.position.set(x, 1.5, z);
 
     scene.add(escapeDoor);
 }
 
-// =========================================
+// ============================================
 // FILES
-// =========================================
+// ============================================
 
 function spawnProceduralEvidenceFiles() {
 
@@ -322,19 +436,20 @@ function spawnProceduralEvidenceFiles() {
 
     points.forEach(p => {
 
-        const mesh = new THREE.Mesh(
+        const mesh =
+            new THREE.Mesh(
 
-            new THREE.BoxGeometry(
-                0.6,
-                0.3,
-                0.7
-            ),
+                new THREE.BoxGeometry(
+                    0.6,
+                    0.3,
+                    0.7
+                ),
 
-            new THREE.MeshStandardMaterial({
-                color:0xe6dfb8,
-                emissive:0x221e10
-            })
-        );
+                new THREE.MeshStandardMaterial({
+                    color:0xe6dfb8,
+                    emissive:0x221e10
+                })
+            );
 
         mesh.position.set(
             p.x,
@@ -348,9 +463,9 @@ function spawnProceduralEvidenceFiles() {
     });
 }
 
-// =========================================
+// ============================================
 // PICKUP
-// =========================================
+// ============================================
 
 function attemptItemPickup() {
 
@@ -402,9 +517,9 @@ function attemptItemPickup() {
     }
 }
 
-// =========================================
+// ============================================
 // JUMP
-// =========================================
+// ============================================
 
 function executeJumpLeap() {
 
@@ -419,9 +534,230 @@ function executeJumpLeap() {
     verticalVelocity = 11.5;
 }
 
-// =========================================
+// ============================================
+// RESET
+// ============================================
+
+function resetGameEnvironment() {
+
+    camera.position.set(0,1.7,0);
+
+    camera.rotation.set(0,0,0);
+
+    collectedFiles = 0;
+
+    stamina = maxStamina;
+
+    isJumping = false;
+
+    verticalVelocity = 0;
+
+    defaultPlayerHeight = 1.7;
+
+    filesCountText.innerText =
+        "0/" + totalFilesRequired;
+
+    keyStatusText.innerText =
+        "LOCKED";
+
+    evidenceFileMeshes.forEach(mesh => {
+        scene.remove(mesh);
+    });
+
+    evidenceFileMeshes = [];
+
+    spawnProceduralEvidenceFiles();
+
+    if (horrorEntity) {
+        horrorEntity.position.set(
+            0,
+            0,
+            -30
+        );
+    }
+}
+
+// ============================================
+// START GAME
+// ============================================
+
+function startGameplay() {
+
+    startScreen.style.display =
+        "none";
+
+    settingsScreen.style.display =
+        "none";
+
+    creditsScreen.style.display =
+        "none";
+
+    pauseScreen.style.display =
+        "none";
+
+    gameOverScreen.style.display =
+        "none";
+
+    gameActive = true;
+
+    isPaused = false;
+
+    resetGameEnvironment();
+
+    if (isMobile) {
+
+        mobileControls.style.display =
+            "block";
+
+    } else {
+
+        document.body
+        .requestPointerLock();
+    }
+}
+
+// ============================================
+// MENUS
+// ============================================
+
+function setupMenus() {
+
+    initializeBtn.addEventListener(
+        "click",
+        startGameplay
+    );
+
+    newGameBtn.addEventListener(
+        "click",
+        startGameplay
+    );
+
+    settingsBtn.addEventListener(
+        "click",
+        () => {
+
+            startScreen.style.display =
+                "none";
+
+            settingsScreen.style.display =
+                "flex";
+        }
+    );
+
+    creditsBtn.addEventListener(
+        "click",
+        () => {
+
+            startScreen.style.display =
+                "none";
+
+            creditsScreen.style.display =
+                "flex";
+        }
+    );
+
+    backBtn.addEventListener(
+        "click",
+        () => {
+
+            settingsScreen.style.display =
+                "none";
+
+            startScreen.style.display =
+                "flex";
+        }
+    );
+
+    creditsBackBtn.addEventListener(
+        "click",
+        () => {
+
+            creditsScreen.style.display =
+                "none";
+
+            startScreen.style.display =
+                "flex";
+        }
+    );
+
+    resumeBtn.addEventListener(
+        "click",
+        () => {
+
+            pauseScreen.style.display =
+                "none";
+
+            gameActive = true;
+
+            isPaused = false;
+
+            if (!isMobile) {
+
+                document.body
+                .requestPointerLock();
+            }
+        }
+    );
+
+    pauseQuitBtn.addEventListener(
+        "click",
+        () => {
+
+            gameActive = false;
+
+            isPaused = false;
+
+            pauseScreen.style.display =
+                "none";
+
+            startScreen.style.display =
+                "flex";
+
+            mobileControls.style.display =
+                "none";
+        }
+    );
+
+    pauseSettingsBtn.addEventListener(
+        "click",
+        () => {
+
+            pauseScreen.style.display =
+                "none";
+
+            settingsScreen.style.display =
+                "flex";
+        }
+    );
+
+    document.addEventListener(
+        "keydown",
+        (e) => {
+
+            if (e.code === "Escape") {
+
+                if (
+                    gameActive &&
+                    !isPaused
+                ) {
+
+                    gameActive = false;
+
+                    isPaused = true;
+
+                    pauseScreen.style.display =
+                        "flex";
+
+                    document.exitPointerLock();
+                }
+            }
+        }
+    );
+}
+
+// ============================================
 // DESKTOP CONTROLS
-// =========================================
+// ============================================
 
 function setupDesktopControls() {
 
@@ -431,7 +767,8 @@ function setupDesktopControls() {
 
             if (!gameActive) return;
 
-            camera.rotation.order = "YXZ";
+            camera.rotation.order =
+                "YXZ";
 
             camera.rotation.y -=
                 e.movementX *
@@ -441,13 +778,14 @@ function setupDesktopControls() {
                 e.movementY *
                 mouseSensitivity;
 
-            camera.rotation.x = Math.max(
-                -Math.PI / 2,
-                Math.min(
-                    Math.PI / 2,
-                    camera.rotation.x
-                )
-            );
+            camera.rotation.x =
+                Math.max(
+                    -Math.PI / 2,
+                    Math.min(
+                        Math.PI / 2,
+                        camera.rotation.x
+                    )
+                );
         }
     );
 
@@ -455,7 +793,7 @@ function setupDesktopControls() {
         "keydown",
         (e) => {
 
-            switch (e.code) {
+            switch(e.code) {
 
                 case "KeyW":
                     moveForward = true;
@@ -492,7 +830,7 @@ function setupDesktopControls() {
         "keyup",
         (e) => {
 
-            switch (e.code) {
+            switch(e.code) {
 
                 case "KeyW":
                     moveForward = false;
@@ -518,21 +856,16 @@ function setupDesktopControls() {
     );
 }
 
-// =========================================
+// ============================================
 // MOBILE CONTROLS
-// =========================================
+// ============================================
 
 function setupMobileControls() {
 
-    const isMobile =
-        /Android|iPhone|iPad|iPod/i
-        .test(navigator.userAgent);
-
     if (!isMobile) return;
 
-    mobileControls.style.display = "block";
-
     let joystickTouchId = null;
+
     let lookTouchId = null;
 
     let centerX = 0;
@@ -604,15 +937,16 @@ function setupMobileControls() {
                 ) {
 
                     let dx =
-                        touch.clientX - centerX;
+                        touch.clientX -
+                        centerX;
 
                     let dy =
-                        touch.clientY - centerY;
+                        touch.clientY -
+                        centerY;
 
                     const dist =
                         Math.sqrt(
-                            dx * dx +
-                            dy * dy
+                            dx*dx + dy*dy
                         );
 
                     if (dist > radius) {
@@ -644,10 +978,12 @@ function setupMobileControls() {
                 ) {
 
                     const dx =
-                        touch.clientX - prevX;
+                        touch.clientX -
+                        prevX;
 
                     const dy =
-                        touch.clientY - prevY;
+                        touch.clientY -
+                        prevY;
 
                     prevX = touch.clientX;
                     prevY = touch.clientY;
@@ -687,14 +1023,14 @@ function setupMobileControls() {
                     joystickTouchId
                 ) {
 
-                    joystickTouchId = null;
+                    joystickTouchId =
+                        null;
 
                     joystick.style.transform =
                         "translate(0px,0px)";
 
                     moveForward = false;
                     moveBackward = false;
-
                     moveLeft = false;
                     moveRight = false;
                 }
@@ -709,8 +1045,6 @@ function setupMobileControls() {
             }
         }
     );
-
-    // BUTTONS
 
     btnSprint.addEventListener(
         "touchstart",
@@ -752,51 +1086,75 @@ function setupMobileControls() {
                 "flex";
         }
     );
-
-    document.addEventListener(
-        "touchmove",
-        (e) => {
-            e.preventDefault();
-        },
-
-        { passive:false }
-    );
 }
 
-// =========================================
-// MONSTER
-// =========================================
+// ============================================
+// FALLBACK MONSTER
+// ============================================
 
 function spawnProxyMonsterMesh() {
 
-    horrorEntity = new THREE.Mesh(
+    horrorEntity =
+        new THREE.Mesh(
 
-        new THREE.BoxGeometry(2,4,2),
+            new THREE.BoxGeometry(
+                2,
+                4,
+                2
+            ),
 
-        new THREE.MeshBasicMaterial({
-            color:0xff0000
-        })
+            new THREE.MeshBasicMaterial({
+                color:0xff0000
+            })
+        );
+
+    horrorEntity.position.set(
+        0,
+        2,
+        -30
     );
-
-    horrorEntity.position.set(0,2,-30);
 
     scene.add(horrorEntity);
 }
 
-// =========================================
+// ============================================
+// GAME OVER
+// ============================================
+
+function triggerAnomalyJumpscare() {
+
+    gameActive = false;
+
+    jumpscareOverlay.style.display =
+        "block";
+
+    setTimeout(() => {
+
+        jumpscareOverlay.style.display =
+            "none";
+
+        gameOverScreen.style.display =
+            "flex";
+
+    }, 1500);
+}
+
+// ============================================
 // ANIMATE
-// =========================================
+// ============================================
 
 function animate() {
 
     requestAnimationFrame(animate);
 
-    const currentTime = performance.now();
+    const currentTime =
+        performance.now();
 
     const delta =
         (currentTime - prevTime) / 1000;
 
     if (animationMixer) {
+
         animationMixer.update(
             clock.getDelta()
         );
@@ -809,11 +1167,15 @@ function animate() {
 
         let forward =
             new THREE.Vector3(0,0,-1)
-            .applyQuaternion(camera.quaternion);
+            .applyQuaternion(
+                camera.quaternion
+            );
 
         let right =
             new THREE.Vector3(1,0,0)
-            .applyQuaternion(camera.quaternion);
+            .applyQuaternion(
+                camera.quaternion
+            );
 
         forward.y = 0;
         right.y = 0;
@@ -873,6 +1235,30 @@ function animate() {
         camera.position.y =
             defaultPlayerHeight;
 
+        // FILE ROTATION
+
+        evidenceFileMeshes.forEach(mesh => {
+
+            mesh.rotation.y +=
+                1.5 * delta;
+        });
+
+        // DOOR
+
+        if (
+            escapeDoor &&
+            collectedFiles >=
+            totalFilesRequired &&
+            camera.position.distanceTo(
+                escapeDoor.position
+            ) < 2
+        ) {
+
+            alert("CASE FILE RESOLVED");
+
+            gameActive = false;
+        }
+
         // MONSTER
 
         if (horrorEntity) {
@@ -882,7 +1268,7 @@ function animate() {
             );
 
             horrorEntity.translateZ(
-                2.2 * delta
+                2 * delta
             );
 
             const dist =
@@ -891,6 +1277,7 @@ function animate() {
                 );
 
             if (dist < 3) {
+
                 triggerAnomalyJumpscare();
             }
         }
@@ -901,31 +1288,9 @@ function animate() {
     renderer.render(scene, camera);
 }
 
-// =========================================
-// GAME OVER
-// =========================================
-
-function triggerAnomalyJumpscare() {
-
-    gameActive = false;
-
-    jumpscareOverlay.style.display =
-        "block";
-
-    setTimeout(() => {
-
-        jumpscareOverlay.style.display =
-            "none";
-
-        gameOverScreen.style.display =
-            "flex";
-
-    }, 1500);
-}
-
-// =========================================
+// ============================================
 // RESIZE
-// =========================================
+// ============================================
 
 function handleViewportResize() {
 
@@ -941,43 +1306,8 @@ function handleViewportResize() {
     );
 }
 
-// =========================================
-// START BUTTON
-// =========================================
-
-initializeBtn.addEventListener(
-    "click",
-    () => {
-
-        startScreen.style.display = "none";
-
-        gameActive = true;
-
-        document.body.requestPointerLock();
-    }
-);
-
-// =========================================
-// PAUSE
-// =========================================
-
-resumeBtn.addEventListener(
-    "click",
-    () => {
-
-        pauseScreen.style.display =
-            "none";
-
-        gameActive = true;
-
-        isPaused = false;
-
-        document.body.requestPointerLock();
-    }
-);
-
-// =========================================
-// INIT
-// =========================================
+// ============================================
+// START
+// ============================================
 
 window.onload = init;
