@@ -426,14 +426,15 @@ body, html {
     100% { transform: translate(-1px, -1px); }
 }
 
-/* Mobile Controls */
 #mobile-controls {
   position: absolute;
   bottom: 20px;
   left: 20px;
+  right: 20px;
   z-index: 2000;
   display: none;
-  gap: 40px;
+  justify-content: space-between;
+  align-items: flex-end;
 }
 
 #joystick-container {
@@ -461,80 +462,55 @@ body, html {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  align-items: flex-end;
 }
 
-.actions button {
+.icon-btn {
   background: rgba(30,30,30,0.8);
   border: 1px solid #550000;
-  color: #eee;
-  font-size: 14px;
-  font-weight: bold;
-  padding: 10px;
-  border-radius: 6px;
-}
-
-.actions button:active {
-  background: #550000;
   color: #fff;
+  font-size: 22px;
+  padding: 14px;
+  border-radius: 50%;
+  min-width: 55px;
+  min-height: 55px;
 }
 
-/* Mobile HUD */
-#mobile-hud {
-  position: absolute;
-  top: 15px;
-  right: 15px;
-  z-index: 2000;
-  background: rgba(14,14,11,0.85);
-  border-left: 3px solid #736e43;
-  padding: 8px 12px;
-  font-size: 12px;
+.icon-btn:active {
+  background: #550000;
+}
+
+/* Mobile Settings Overlay */
+#mobile-settings {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
   display: none;
-  max-width: 50%;
+  justify-content: center;
+  align-items: center;
+  z-index: 3000;
 }
 
-#mobile-hud .hud-item {
-  color: #e0ded0;
+.settings-box {
+  background: #222;
+  padding: 20px;
+  border: 2px solid #550000;
+  border-radius: 8px;
+  color: #eee;
   font-family: monospace;
-  margin-bottom: 6px;
+  width: 80%;
+  max-width: 400px;
 }
 
-#mobile-quest-text {
-  margin-top: 8px;
-  font-size: 12px;
-  color: #ccccaa;
-  font-style: italic;
+.settings-box h2 {
+  margin-bottom: 15px;
 }
 
-#mobile-sprint-bar-fill {
+.settings-box label {
+  display: block;
+  margin: 10px 0;
+}
+
+.settings-box input[type=range] {
   width: 100%;
-  height: 100%;
-  background: #00ffaa;
-  box-shadow: 0 0 6px #00ffaa;
-  transition: width 0.04s linear;
-}
-
-/* Responsive scaling */
-@media (max-width: 480px) {
-  #mobile-hud { font-size: 10px; padding: 6px 10px; }
-  #mobile-quest-text { font-size: 10px; }
-  #mobile-controls { gap: 20px; }
-  #joystick-container { width: 90px; height: 90px; }
-  #joystick { width: 40px; height: 40px; top: 25px; left: 25px; }
-  .actions button { font-size: 12px; padding: 8px; }
-}
-
-@media (min-width: 481px) and (max-width: 768px) {
-  #mobile-hud { font-size: 13px; padding: 10px 14px; }
-  #mobile-quest-text { font-size: 13px; }
-  #joystick-container { width: 110px; height: 110px; }
-  #joystick { width: 50px; height: 50px; top: 30px; left: 30px; }
-  .actions button { font-size: 14px; padding: 10px; }
-}
-
-@media (min-width: 769px) {
-  #mobile-hud { font-size: 14px; padding: 12px 16px; }
-  #mobile-quest-text { font-size: 14px; }
-  #joystick-container { width: 120px; height: 120px; }
-  #joystick { width: 60px; height: 60px; top: 30px; left: 30px; }
-  .actions button { font-size: 16px; padding: 12px; }
 }
