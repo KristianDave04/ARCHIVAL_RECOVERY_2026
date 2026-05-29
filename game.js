@@ -622,27 +622,9 @@ function updateMobileHUD() {
   document.getElementById('mobile-quest-text').textContent = quests[currentQuestIndex];
 }
 
-// Animate loop
-function animate() {
-  requestAnimationFrame(animate);
-
-  if (gameActive) {
-    // --- GAME LOGIC ---
-    // Movement
-    updatePlayerMovement();
-    // Collision detection
-    checkCollisions();
-    // AI updates
-    updateGhostAI();
-    // Stamina & sanity
-    updateStamina();
-    updateSanity();
-    // Ambient effects
-    updateAmbience();
-  }
 
   updateHUD();
-  if (isMobileDevice()) updateMobileHUD();
+  if (isMobileDevice()) updateMobileHUD(){
 
   renderer.render(scene, camera);
 }
