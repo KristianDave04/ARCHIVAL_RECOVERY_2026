@@ -516,123 +516,223 @@ skipCutsceneBtn.addEventListener('click', () => { cutsceneVideo.pause(); cutscen
 cutsceneVideo.addEventListener('ended', () => { cutsceneScreen.style.display = 'none'; startGameplay(); });
 function startGameplay() { hasStartedGame = true; document.body.requestPointerLock(); resetGameEnvironment(); }
 
-function isMobileDevice() {
-  return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+// =========================
+// MOBILE CONTROLS SYSTEM
+// =========================
+
+const mobileControls = document.getElementById("mobile-controls");
+const joystickContainer = document.getElementById("joystick-container");
+const joystick = document.getElementById("joystick");
+
+const btnSprint = document.getElementById("btn-sprint");
+const btnJump = document.getElementById("btn-jump");
+const btnInteract = document.getElementById("btn-interact");
+
+let isMobile =
+    /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+if (isMobile) {
+    mobileControls.style.display = "block";
 }
 
-window.addEventListener('load', () => {
-  if (isMobileDevice()) {
-    document.getElementById('mobile-controls').style.display = 'flex';
-    document.getElementById('mobile-hud').style.display = 'block';
-    setupMobileControls();
-    setupMobileCamera();
-  }
+// =========================
+// MOVEMENT FLAGS
+// =========================
+
+let moveForward = false;
+let moveBackward = false;
+let moveLeft = false;
+let moveRight = false;
+let sprinting = false;
+
+// =========================
+// JOYSTICK
+// =========================
+
+let joystickActive = false;
+let joystickTouchId = null;
+
+let joystickStartX = 0;
+let joystickStartY = 0;
+
+const joystickRadius = 50;
+
+joystickContainer.addEventListener("touchstart", (e) => {
+    const touch = e.changedTouches[0];
+
+    joystickTouchId = touch.identifier;
+    joystickActive = true;
+
+    const rect = joystickContainer.getBoundingClientRect();
+
+    joystickStartX = rect.left + rect.width / 2;
+    joystickStartY = rect.top + rect.height / 2;
+
+}, { passive: false });
+
+window.addEventListener("touchmove", (e) => {
+
+    for (let touch of e.changedTouches) {
+
+        // =========================
+        // JOYSTICK TOUCH
+        // =========================
+
+        if (touch.identifier === joystickTouchId && joystickActive) {
+
+            let deltaX = touch.clientX - joystickStartX;
+            let deltaY = touch.clientY - joystickStartY;
+
+            const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+            if (distance > joystickRadius) {
+                deltaX = (deltaX / distance) * joystickRadius;
+                deltaY = (deltaY / distance) * joystickRadius;
+            }
+
+            joystick.style.transform =
+                `translate(${deltaX}px, ${deltaY}px)`;
+
+            // Reset movement
+            moveForward = false;
+            moveBackward = false;
+            moveLeft = false;
+            moveRight = false;
+
+            // DEADZONE
+            const deadzone = 15;
+
+            if (deltaY < -deadzone) moveForward = true;
+            if (deltaY > deadzone) moveBackward = true;
+            if (deltaX < -deadzone) moveLeft = true;
+            if (deltaX > deadzone) moveRight = true;
+        }
+    }
+
+}, { passive: false });
+
+window.addEventListener("touchend", (e) => {
+
+    for (let touch of e.changedTouches) {
+
+        if (touch.identifier === joystickTouchId) {
+
+            joystickActive = false;
+            joystickTouchId = null;
+
+            joystick.style.transform = `translate(0px, 0px)`;
+
+            moveForward = false;
+            moveBackward = false;
+            moveLeft = false;
+            moveRight = false;
+        }
+    }
+
 });
 
-function setupMobileControls() {
-  const joystick = document.getElementById('joystick');
-  const container = document.getElementById('joystick-container');
-  const center = { x: container.offsetWidth / 2, y: container.offsetHeight / 2 };
+// =========================
+// SWIPE CAMERA LOOK
+// =========================
 
-  let active = false;
+let lookTouchId = null;
 
-  container.addEventListener('touchstart', (e) => {
-    active = true;
-    handleJoystick(e.touches[0]);
-  });
+let previousTouchX = 0;
+let previousTouchY = 0;
 
-  container.addEventListener('touchmove', (e) => {
-    if (!active) return;
-    handleJoystick(e.touches[0]);
-  });
+let yaw = 0;
+let pitch = 0;
 
-  container.addEventListener('touchend', () => {
-    active = false;
-    joystick.style.left = center.x - joystick.offsetWidth / 2 + 'px';
-    joystick.style.top = center.y - joystick.offsetHeight / 2 + 'px';
-    moveForward = moveBackward = moveLeft = moveRight = false;
-  });
+const sensitivity = 0.003;
 
-  function handleJoystick(touch) {
-    const rect = container.getBoundingClientRect();
-    const x = touch.clientX - rect.left;
-    const y = touch.clientY - rect.top;
+window.addEventListener("touchstart", (e) => {
 
-    const dx = x - center.x;
-    const dy = y - center.y;
-    const dist = Math.sqrt(dx*dx + dy*dy);
-    const maxDist = container.offsetWidth / 2;
+    for (let touch of e.changedTouches) {
 
-    const angle = Math.atan2(dy, dx);
-    const limitedDist = Math.min(dist, maxDist - joystick.offsetWidth/2);
+        // Ignore joystick touches
+        if (touch.identifier !== joystickTouchId) {
 
-    joystick.style.left = center.x + Math.cos(angle) * limitedDist - joystick.offsetWidth/2 + 'px';
-    joystick.style.top = center.y + Math.sin(angle) * limitedDist - joystick.offsetHeight/2 + 'px';
+            lookTouchId = touch.identifier;
 
-    moveForward = dy < -20;
-    moveBackward = dy > 20;
-    moveLeft = dx < -20;
-    moveRight = dx > 20;
-  }
-
-  // Sprint
-  document.getElementById('btn-sprint').addEventListener('touchstart', () => {
-    if (!isExhausted) isSprinting = true;
-  });
-  document.getElementById('btn-sprint').addEventListener('touchend', () => isSprinting = false);
-
-  // Jump
-  document.getElementById('btn-jump').addEventListener('touchstart', () => executeJumpLeap());
-
-  // Interact
-  document.getElementById('btn-interact').addEventListener('touchstart', () => attemptItemPickup());
-}
-
-function setupMobileCamera() {
-  let lastX = null, lastY = null;
-
-  document.addEventListener('touchstart', (e) => {
-    if (e.touches.length === 1) {
-      lastX = e.touches[0].clientX;
-      lastY = e.touches[0].clientY;
+            previousTouchX = touch.clientX;
+            previousTouchY = touch.clientY;
+        }
     }
-  });
 
-  document.addEventListener('touchmove', (e) => {
-    if (e.touches.length === 1 && lastX !== null) {
-      const dx = e.touches[0].clientX - lastX;
-      const dy = e.touches[0].clientY - lastY;
+}, { passive: false });
 
-      camera.rotation.y -= dx * 0.002; // horizontal swipe
-      camera.rotation.x -= dy * 0.002; // vertical swipe
-      camera.rotation.x = Math.max(-Math.PI/2.2, Math.min(Math.PI/2.2, camera.rotation.x));
+window.addEventListener("touchmove", (e) => {
 
-      lastX = e.touches[0].clientX;
-      lastX = e.touches[0].clientX;
-      lastY = e.touches[0].clientY;
+    for (let touch of e.changedTouches) {
+
+        if (touch.identifier === lookTouchId) {
+
+            const deltaX = touch.clientX - previousTouchX;
+            const deltaY = touch.clientY - previousTouchY;
+
+            previousTouchX = touch.clientX;
+            previousTouchY = touch.clientY;
+
+            yaw -= deltaX * sensitivity;
+            pitch -= deltaY * sensitivity;
+
+            // Clamp vertical rotation
+            pitch = Math.max(
+                -Math.PI / 2,
+                Math.min(Math.PI / 2, pitch)
+            );
+
+            // Apply rotation
+            camera.rotation.order = "YXZ";
+            camera.rotation.y = yaw;
+            camera.rotation.x = pitch;
+        }
     }
-  });
 
-  document.addEventListener('touchend', () => {
-    lastX = null;
-    lastY = null;
-  });
-}
+}, { passive: false });
 
-// --- Mobile HUD Sync ---
-function updateMobileHUD() {
-  const filesCount = document.getElementById('mobile-files-count');
-  const keyStatus = document.getElementById('mobile-key-status');
-  const sprintFill = document.getElementById('mobile-sprint-bar-fill');
-  const questText = document.getElementById('mobile-quest-text');
+window.addEventListener("touchend", (e) => {
 
-  filesCount.innerText = collectedFiles + "/" + totalFilesRequired;
-  keyStatus.innerText = (collectedFiles === totalFilesRequired) ? "UNLOCKED" : "LOCKED";
+    for (let touch of e.changedTouches) {
 
-  const staminaPercentage = (stamina / maxStamina) * 100;
-  sprintFill.style.width = staminaPercentage + "%";
+        if (touch.identifier === lookTouchId) {
+            lookTouchId = null;
+        }
+    }
 
-  questText.textContent = quests[currentQuestIndex];
-}
+});
 
+// =========================
+// BUTTONS
+// =========================
+
+btnSprint.addEventListener("touchstart", () => {
+    sprinting = true;
+});
+
+btnSprint.addEventListener("touchend", () => {
+    sprinting = false;
+});
+
+btnJump.addEventListener("touchstart", () => {
+
+    // YOUR JUMP FUNCTION
+    playerVelocity.y = 8;
+
+});
+
+btnInteract.addEventListener("touchstart", () => {
+
+    // YOUR INTERACTION FUNCTION
+    interact();
+
+});
+
+// =========================
+// PREVENT MOBILE SCROLL
+// =========================
+
+document.body.addEventListener("touchmove", (e) => {
+    e.preventDefault();
+}, { passive: false });
 window.onload = init;
