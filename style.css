@@ -428,23 +428,30 @@ body, html {
 
 #mobile-controls {
   position: absolute;
-  bottom: 20px;
-  left: 20px;
-  right: 20px;
+  inset: 0;
   z-index: 2000;
   display: none;
-  justify-content: space-between;
-  align-items: flex-end;
+  pointer-events: none; /* only buttons/joystick catch events */
+}
+
+.pause-btn {
+  position: absolute;
+  top: 15px;
+  left: 15px;
+  pointer-events: auto;
 }
 
 #joystick-container {
-  position: relative;
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
   width: 120px;
   height: 120px;
   background: rgba(40,40,40,0.6);
   border: 2px solid #550000;
   border-radius: 50%;
   touch-action: none;
+  pointer-events: auto;
 }
 
 #joystick {
@@ -459,10 +466,13 @@ body, html {
 }
 
 .actions {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  align-items: flex-end;
+  pointer-events: auto;
 }
 
 .icon-btn {
@@ -480,37 +490,19 @@ body, html {
   background: #550000;
 }
 
-/* Mobile Settings Overlay */
-#mobile-settings {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.85);
+/* Mobile HUD hidden in menus */
+.screen, .pause-overlay {
+  /* menus already styled */
+}
+#mobile-hud {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  z-index: 2000;
+  background: rgba(14,14,11,0.85);
+  border-left: 3px solid #736e43;
+  padding: 8px 12px;
+  font-size: 12px;
   display: none;
-  justify-content: center;
-  align-items: center;
-  z-index: 3000;
 }
 
-.settings-box {
-  background: #222;
-  padding: 20px;
-  border: 2px solid #550000;
-  border-radius: 8px;
-  color: #eee;
-  font-family: monospace;
-  width: 80%;
-  max-width: 400px;
-}
-
-.settings-box h2 {
-  margin-bottom: 15px;
-}
-
-.settings-box label {
-  display: block;
-  margin: 10px 0;
-}
-
-.settings-box input[type=range] {
-  width: 100%;
-}
