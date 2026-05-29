@@ -526,6 +526,7 @@ window.addEventListener('load', () => {
     document.getElementById('mobile-hud').style.display = 'block';
     setupMobileControls();
     setupMobileCamera();
+    setupMobileSettings();
   }
 });
 
@@ -586,6 +587,16 @@ function setupMobileControls() {
 
   // Interact
   document.getElementById('btn-interact').addEventListener('touchstart', () => attemptItemPickup());
+
+  // Pause
+  document.getElementById('btn-pause').addEventListener('touchstart', () => {
+    gameActive = false;
+    pauseActive = true;
+    document.exitPointerLock();
+    pauseScreen.style.display = 'flex';
+    startScreen.style.display = 'none';
+    document.getElementById('mobile-settings').style.display = 'flex'; // open mobile settings
+  });
 }
 
 function setupMobileCamera() {
@@ -603,11 +614,10 @@ function setupMobileCamera() {
       const dx = e.touches[0].clientX - lastX;
       const dy = e.touches[0].clientY - lastY;
 
-      camera.rotation.y -= dx * 0.002; // horizontal swipe
-      camera.rotation.x -= dy * 0.002; // vertical swipe
+      camera.rotation.y -= dx * 0.0015; // smoother sensitivity
+      camera.rotation.x -= dy * 0.0015;
       camera.rotation.x = Math.max(-Math.PI/2.2, Math.min(Math.PI/2.2, camera.rotation.x));
 
-      lastX = e.touches[0].clientX;
       lastX = e.touches[0].clientX;
       lastY = e.touches[0].clientY;
     }
@@ -619,7 +629,44 @@ function setupMobileCamera() {
   });
 }
 
-// --- Mobile HUD Sync ---
+function setupMobileSettings() {
+  const audioSlider = document.getElementById('mobile-audio');
+  const graphicsSlider = document.getElementById('mobile-graphics');
+  const sensitivitySlider = document.getElementById('mobile-sensitivity');
+  const closeBtn = document.getElementById('mobile-settings-close');
+
+  audioSlider.addEventListener('input', () => {
+    const volume = audioSlider.value / 100;
+    if (monsterGainNode) {
+      monsterGainNode.gain.value = volume;
+    }
+    // You can also adjust other audioCtx nodes here if needed
+  });
+
+  graphicsSlider.addEventListener('input', () => {
+    const quality = graphicsSlider.value;
+    // Example: adjust renderer pixel ratio or shadow quality
+    if (renderer) {
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, quality));
+    }
+  });
+
+  sensitivitySlider.addEventListener('input', () => {
+    const sens = sensitivitySlider.value;
+    // Store sensitivity multiplier for swipe camera
+    mobileLookSensitivity = sens * 0.0003; // base multiplier
+  });
+
+  closeBtn.addEventListener('click', () => {
+    document.getElementById('mobile-settings').style.display = 'none';
+    pauseScreen.style.display = 'none';
+    pauseActive = false;
+    gameActive = true;
+    document.body.requestPointerLock();
+  });
+}
+
+// --- Update Mobile HUD each frame ---
 function updateMobileHUD() {
   const filesCount = document.getElementById('mobile-files-count');
   const keyStatus = document.getElementById('mobile-key-status');
@@ -634,5 +681,6 @@ function updateMobileHUD() {
 
   questText.textContent = quests[currentQuestIndex];
 }
+
 
 window.onload = init;
