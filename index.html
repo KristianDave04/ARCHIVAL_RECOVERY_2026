@@ -113,7 +113,9 @@
 <!-- Mobile Controls -->
 <div id="mobile-controls" style="display:none;">
   <!-- Pause button top-left -->
-  <button id="btn-pause" class="icon-btn pause-btn">⏸️</button>
+  <button id="btn-pause" class="icon-btn pause-btn">
+    <img src="./pause.png" alt="Pause">
+  </button>
 
   <!-- Left joystick -->
   <div id="joystick-container">
@@ -122,13 +124,19 @@
 
   <!-- Right action buttons -->
   <div class="actions">
-    <button id="btn-jump" class="icon-btn">⬆️</button>
-    <button id="btn-sprint" class="icon-btn">🏃</button>
-    <button id="btn-interact" class="icon-btn">🖐️</button>
+    <button id="btn-jump" class="icon-btn">
+      <img src="./jump.png" alt="Jump">
+    </button>
+    <button id="btn-sprint" class="icon-btn">
+      <img src="./run.png" alt="Sprint">
+    </button>
+    <button id="btn-interact" class="icon-btn">
+      <img src="./hand.png" alt="Interact">
+    </button>
   </div>
 </div>
 
-<!-- Mobile HUD (hidden in menus) -->
+<!-- Mobile HUD -->
 <div id="mobile-hud" style="display:none;">
   <div class="hud-item">Files: <span id="mobile-files-count">0/7</span></div>
   <div class="hud-item">Lock: <span id="mobile-key-status">LOCKED</span></div>
@@ -138,6 +146,7 @@
   </div>
   <div id="mobile-quest-text"></div>
 </div>
+
 
     <div id="jumpscare-overlay" style="display:none;"></div>
     <div id="canvas-container"></div>
