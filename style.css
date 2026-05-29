@@ -426,124 +426,74 @@ body, html {
     100% { transform: translate(-1px, -1px); }
 }
 
-/* Controls Layout */
 #mobile-controls {
-  position: absolute;
-  inset: 0;
-  z-index: 2000;
-  display: none;
-  pointer-events: none;
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    pointer-events: none;
 }
 
-.pause-btn {
-  position: absolute;
-  top: 15px;
-  left: 15px;
-  pointer-events: auto;
+#joystick-container,
+.actions,
+.icon-btn {
+    pointer-events: auto;
 }
 
 #joystick-container {
-  position: absolute;
-  bottom: 20px;
-  left: 20px;
-  width: 120px;
-  height: 120px;
-  background: rgba(40,40,40,0.6);
-  border: 2px solid #550000;
-  border-radius: 50%;
-  touch-action: none;
-  pointer-events: auto;
+    position: absolute;
+    left: 30px;
+    bottom: 30px;
+
+    width: 120px;
+    height: 120px;
+
+    border-radius: 50%;
+    background: rgba(255,255,255,0.1);
+
+    touch-action: none;
 }
 
 #joystick {
-  position: absolute;
-  width: 60px;
-  height: 60px;
-  background: rgba(200,200,200,0.8);
-  border-radius: 50%;
-  top: 30px;
-  left: 30px;
-  pointer-events: none;
+    position: absolute;
+
+    left: 35px;
+    top: 35px;
+
+    width: 50px;
+    height: 50px;
+
+    border-radius: 50%;
+    background: rgba(255,255,255,0.5);
+
+    transition: transform 0.05s linear;
 }
 
 .actions {
-  position: absolute;
-  bottom: 20px;
-  right: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  pointer-events: auto;
+    position: absolute;
+    right: 20px;
+    bottom: 30px;
+
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
 }
 
 .icon-btn {
-  background: rgba(30,30,30,0.8);
-  border: 1px solid #550000;
-  border-radius: 50%;
-  min-width: 55px;
-  min-height: 55px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 10px;
+    width: 70px;
+    height: 70px;
+
+    border: none;
+    border-radius: 50%;
+
+    background: rgba(255,255,255,0.12);
+
+    backdrop-filter: blur(4px);
+
+    touch-action: none;
 }
 
 .icon-btn img {
-  width: 28px;
-  height: 28px;
-  pointer-events: none;
+    width: 38px;
+    height: 38px;
 }
-
-.icon-btn:active {
-  background: #550000;
-}
-
-/* HUD hidden in menus */
-#mobile-hud {
-  position: absolute;
-  top: 15px;
-  right: 15px;
-  z-index: 2000;
-  background: rgba(14,14,11,0.85);
-  border-left: 3px solid #736e43;
-  padding: 8px 12px;
-  font-size: 12px;
-  display: none;
-}
-
-/* Responsive Menu */
-.screen .menu-box {
-  max-width: 90%;
-  font-size: 16px;
-  padding: 12px;
-}
-
-@media (max-width: 480px) {
-  .screen .menu-box {
-    font-size: 14px;
-    padding: 8px;
-  }
-  .screen .menu-box h1 {
-    font-size: 20px;
-  }
-  .menu-options button {
-    font-size: 14px;
-    padding: 8px;
-  }
-}
-
-@media (min-width: 481px) and (max-width: 768px) {
-  .screen .menu-box {
-    font-size: 15px;
-    padding: 10px;
-  }
-  .screen .menu-box h1 {
-    font-size: 22px;
-  }
-  .menu-options button {
-    font-size: 15px;
-    padding: 10px;
-  }
-}
-
 
